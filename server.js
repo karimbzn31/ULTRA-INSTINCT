@@ -1,5 +1,5 @@
 // ============================================================
-// ⚡ ULTRA INSTINCT — SERVEUR ADMIN + API
+// ⚡ ULTRA INSTINCT — SERVEUR ADMIN + API (Supabase)
 // ============================================================
 
 import express from 'express';
@@ -10,23 +10,27 @@ import multer from 'multer';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { v4 as uuidv4 } from 'uuid';
 import 'dotenv/config';
+
+// ─── Supabase ──────────────────────────────────────────────
+import {
+  getClients, getClient, createClient, updateClient,
+  toggleClient, deleteClient, getStats, supabase
+} from './lib/supabase.js';
 
 // ─── Config ────────────────────────────────────────────────
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PORT = process.env.ADMIN_PORT || 3580;
+const PORT = process.env.PORT || 3580;
 const JWT_SECRET = process.env.JWT_SECRET || 'ultra-instinct-secret-key-2026';
 const DATA_DIR = path.join(__dirname, 'data');
 const UPLOAD_DIR = path.join(__dirname, 'uploads', 'clients');
 const ADMIN_FILE = path.join(DATA_DIR, 'admin.json');
-const CLIENTS_FILE = path.join(DATA_DIR, 'clients.json');
 
-// ─── Init ───────────────────────────────────────────────────
+// ─── Init dossiers ─────────────────────────────────────────
 if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
 if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true });
 
-// ─── Storage ────────────────────────────────────────────────
+// ─── Multer ────────────────────────────────────────────────
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOAD_DIR),
   filename: (req, file, cb) => {
@@ -37,7 +41,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = /\.(jpg|jpeg|png|gif|webp|svg|json|csv)$/i;
     if (allowed.test(path.extname(file.originalname))) return cb(null, true);
@@ -45,24 +49,15 @@ const upload = multer({
   }
 });
 
-// ─── Helpers ────────────────────────────────────────────────
+// ─── Helpers JSON (admin only) ─────────────────────────────
 function readJSON(filePath) {
   try {
     if (!existsSync(filePath)) return null;
     return JSON.parse(readFileSync(filePath, 'utf-8'));
   } catch { return null; }
 }
-
 function writeJSON(filePath, data) {
   writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
-}
-
-function getClients() {
-  return readJSON(CLIENTS_FILE) || [];
-}
-
-function saveClients(clients) {
-  writeJSON(CLIENTS_FILE, clients);
 }
 
 // ─── Prompt par défaut ─────────────────────────────────────
@@ -82,7 +77,7 @@ Ton rôle est d'accueillir les clients, les aider à choisir les bons produits/s
 ✅ VALIDATION : Une fois tout confirmé, génère un JSON structuré pour le système.`;
 }
 
-// ─── Init admin par défaut ──────────────────────────────────
+// ─── Init admin ────────────────────────────────────────────
 async function initAdmin() {
   let admin = readJSON(ADMIN_FILE);
   if (!admin) {
@@ -95,7 +90,7 @@ async function initAdmin() {
       createdAt: new Date().toISOString()
     };
     writeJSON(ADMIN_FILE, admin);
-    console.log('✅ Admin par défaut créé : admin@ultra-instinct.ai / admin123');
+    console.log('✅ Admin : admin@ultra-instinct.ai / admin123');
   }
 }
 await initAdmin();
@@ -105,12 +100,10 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true }));
-
-// Static files pour le dashboard admin
 app.use('/admin/assets', express.static(path.join(__dirname, 'admin', 'assets')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// ─── Middleware Auth ──────────────────────────────────────
+// ─── Auth middleware ────────────────────────────────────────
 function authMiddleware(req, res, next) {
   const header = req.headers.authorization;
   if (!header || !header.startsWith('Bearer ')) {
@@ -120,280 +113,162 @@ function authMiddleware(req, res, next) {
     const decoded = jwt.verify(header.split(' ')[1], JWT_SECRET);
     req.admin = decoded;
     next();
-  } catch (err) {
+  } catch {
     return res.status(401).json({ error: 'Token invalide ou expiré.' });
   }
 }
 
 // ─── Routes Auth ──────────────────────────────────────────
 app.post('/api/admin/login', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email et mot de passe requis.' });
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis.' });
+
+    const admin = readJSON(ADMIN_FILE);
+    if (!admin) return res.status(500).json({ error: 'Erreur configuration admin.' });
+    if (email !== admin.email) return res.status(401).json({ error: 'Email ou mot de passe incorrect.' });
+
+    const valid = await bcrypt.compare(password, admin.password);
+    if (!valid) return res.status(401).json({ error: 'Email ou mot de passe incorrect.' });
+
+    const token = jwt.sign(
+      { email: admin.email, name: admin.name, role: admin.role },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({ token, admin: { email: admin.email, name: admin.name, role: admin.role } });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur serveur.' });
   }
-
-  const admin = readJSON(ADMIN_FILE);
-  if (!admin) {
-    return res.status(500).json({ error: 'Erreur de configuration admin.' });
-  }
-
-  if (email !== admin.email) {
-    return res.status(401).json({ error: 'Email ou mot de passe incorrect.' });
-  }
-
-  const valid = await bcrypt.compare(password, admin.password);
-  if (!valid) {
-    return res.status(401).json({ error: 'Email ou mot de passe incorrect.' });
-  }
-
-  const token = jwt.sign(
-    { email: admin.email, name: admin.name, role: admin.role },
-    JWT_SECRET,
-    { expiresIn: '24h' }
-  );
-
-  res.json({
-    token,
-    admin: { email: admin.email, name: admin.name, role: admin.role }
-  });
 });
 
 app.get('/api/admin/me', authMiddleware, (req, res) => {
   res.json({ admin: req.admin });
 });
 
-app.put('/api/admin/password', authMiddleware, async (req, res) => {
-  const { currentPassword, newPassword } = req.body;
-  if (!currentPassword || !newPassword) {
-    return res.status(400).json({ error: 'Ancien et nouveau mot de passe requis.' });
-  }
-
-  const admin = readJSON(ADMIN_FILE);
-  const valid = await bcrypt.compare(currentPassword, admin.password);
-  if (!valid) {
-    return res.status(401).json({ error: 'Mot de passe actuel incorrect.' });
-  }
-
-  admin.password = await bcrypt.hash(newPassword, 10);
-  writeJSON(ADMIN_FILE, admin);
-  res.json({ success: true, message: 'Mot de passe modifié avec succès.' });
-});
-
 // ─── Routes Stats ─────────────────────────────────────────
-app.get('/api/admin/stats', authMiddleware, (req, res) => {
-  const clients = getClients();
-  const active = clients.filter(c => c.active).length;
-  const inactive = clients.filter(c => !c.active).length;
-  const totalMessages = clients.reduce((sum, c) => sum + (c.stats?.messagesProcessed || 0), 0);
-
-  // Stats par plateforme
-  const platformStats = {
-    messenger: clients.filter(c => c.platforms?.messenger).length,
-    instagram: clients.filter(c => c.platforms?.instagram).length,
-    whatsapp: clients.filter(c => c.platforms?.whatsapp).length,
-    telegram: clients.filter(c => c.platforms?.telegram).length,
-  };
-
-  res.json({
-    total: clients.length,
-    active,
-    inactive,
-    totalMessages,
-    platformStats,
-    recentClients: clients.slice(-5).reverse().map(c => ({
-      id: c.id,
-      name: c.name,
-      company: c.company,
-      active: c.active,
-      createdAt: c.createdAt
-    }))
-  });
-});
-
-// ─── Routes CRUD Clients ─────────────────────────────────
-// GET /api/clients — Liste tous les clients
-app.get('/api/clients', authMiddleware, (req, res) => {
-  const clients = getClients();
-  const { search, active } = req.query;
-
-  let filtered = clients;
-  if (search) {
-    const s = search.toLowerCase();
-    filtered = filtered.filter(c =>
-      c.name?.toLowerCase().includes(s) ||
-      c.company?.toLowerCase().includes(s) ||
-      c.email?.toLowerCase().includes(s)
-    );
+app.get('/api/admin/stats', authMiddleware, async (req, res) => {
+  try {
+    const stats = await getStats();
+    res.json(stats);
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur chargement stats.' });
   }
-  if (active !== undefined) {
-    filtered = filtered.filter(c => c.active === (active === 'true'));
+});
+
+// ─── Routes CRUD Clients ──────────────────────────────────
+app.get('/api/clients', authMiddleware, async (req, res) => {
+  try {
+    const { search, active } = req.query;
+    const clients = await getClients(search, active);
+    res.json(clients);
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur chargement clients.' });
   }
-
-  res.json(filtered.reverse());
 });
 
-// GET /api/clients/:id — Détail d'un client
-app.get('/api/clients/:id', authMiddleware, (req, res) => {
-  const clients = getClients();
-  const client = clients.find(c => c.id === req.params.id);
-  if (!client) return res.status(404).json({ error: 'Client non trouvé.' });
-  res.json(client);
-});
-
-// POST /api/clients — Créer un client
-app.post('/api/clients', authMiddleware, (req, res) => {
-  const { name, email, phone, company, businessType, platforms, prompt, notes } = req.body;
-
-  if (!name || !email) {
-    return res.status(400).json({ error: 'Nom et email requis.' });
+app.get('/api/clients/:id', authMiddleware, async (req, res) => {
+  try {
+    const client = await getClient(req.params.id);
+    if (!client) return res.status(404).json({ error: 'Client non trouvé.' });
+    res.json(client);
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur chargement client.' });
   }
-
-  const clients = getClients();
-
-  const newClient = {
-    id: uuidv4(),
-    name,
-    email,
-    phone: phone || '',
-    company: company || '',
-    businessType: businessType || 'boutique',
-    active: true,
-    platforms: {
-      messenger: platforms?.messenger || false,
-      instagram: platforms?.instagram || false,
-      whatsapp: platforms?.whatsapp || false,
-      telegram: platforms?.telegram || false,
-    },
-    prompt: prompt || getDefaultPrompt(name),
-    logo: '',
-    catalog: [],
-    catalogFileName: '',
-    notes: notes || '',
-    stats: {
-      messagesProcessed: 0,
-      ordersCompleted: 0,
-      lastActivity: null,
-    },
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  clients.push(newClient);
-  saveClients(clients);
-
-  res.status(201).json(newClient);
 });
 
-// PUT /api/clients/:id — Modifier un client
-app.put('/api/clients/:id', authMiddleware, (req, res) => {
-  const clients = getClients();
-  const index = clients.findIndex(c => c.id === req.params.id);
-  if (index === -1) return res.status(404).json({ error: 'Client non trouvé.' });
+app.post('/api/clients', authMiddleware, async (req, res) => {
+  try {
+    const { name, email, phone, company, businessType, platforms, prompt, notes } = req.body;
+    if (!name || !email) return res.status(400).json({ error: 'Nom et email requis.' });
 
-  const updates = req.body;
-  const client = clients[index];
-
-  // Champs modifiables
-  const allowed = ['name', 'email', 'phone', 'company', 'businessType', 'platforms', 'prompt', 'notes'];
-  for (const field of allowed) {
-    if (updates[field] !== undefined) {
-      client[field] = updates[field];
-    }
+    const client = await createClient({
+      name, email, phone, company, businessType, platforms,
+      prompt: prompt || getDefaultPrompt(name),
+      notes
+    });
+    res.status(201).json(client);
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur création client.' });
   }
-
-  client.updatedAt = new Date().toISOString();
-  clients[index] = client;
-  saveClients(clients);
-
-  res.json(client);
 });
 
-// PUT /api/clients/:id/toggle — Activer/Désactiver
-app.put('/api/clients/:id/toggle', authMiddleware, (req, res) => {
-  const clients = getClients();
-  const client = clients.find(c => c.id === req.params.id);
-  if (!client) return res.status(404).json({ error: 'Client non trouvé.' });
-
-  client.active = !client.active;
-  client.updatedAt = new Date().toISOString();
-  saveClients(clients);
-
-  res.json({ id: client.id, active: client.active });
+app.put('/api/clients/:id', authMiddleware, async (req, res) => {
+  try {
+    const { name, email, phone, company, businessType, platforms, prompt, notes } = req.body;
+    const client = await updateClient(req.params.id, {
+      name, email, phone, company,
+      business_type: businessType,
+      platforms, prompt, notes
+    });
+    if (!client) return res.status(404).json({ error: 'Client non trouvé.' });
+    res.json(client);
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur modification client.' });
+  }
 });
 
-// DELETE /api/clients/:id — Supprimer
-app.delete('/api/clients/:id', authMiddleware, (req, res) => {
-  let clients = getClients();
-  const index = clients.findIndex(c => c.id === req.params.id);
-  if (index === -1) return res.status(404).json({ error: 'Client non trouvé.' });
+app.put('/api/clients/:id/toggle', authMiddleware, async (req, res) => {
+  try {
+    const client = await toggleClient(req.params.id);
+    if (!client) return res.status(404).json({ error: 'Client non trouvé.' });
+    res.json({ id: client.id, active: client.active });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur toggle statut.' });
+  }
+});
 
-  clients.splice(index, 1);
-  saveClients(clients);
-  res.json({ success: true, message: 'Client supprimé.' });
+app.delete('/api/clients/:id', authMiddleware, async (req, res) => {
+  try {
+    await deleteClient(req.params.id);
+    res.json({ success: true, message: 'Client supprimé.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur suppression client.' });
+  }
 });
 
 // ─── Uploads ──────────────────────────────────────────────
-// Upload logo
-app.post('/api/upload/logo', authMiddleware, upload.single('logo'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
+app.post('/api/upload/logo', authMiddleware, upload.single('logo'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
+    const url = `/uploads/clients/${req.file.filename}`;
 
-  const clientId = req.body.clientId;
-  if (clientId) {
-    const clients = getClients();
-    const client = clients.find(c => c.id === clientId);
-    if (client) {
-      client.logo = `/uploads/clients/${req.file.filename}`;
-      client.updatedAt = new Date().toISOString();
-      saveClients(clients);
+    if (req.body.clientId) {
+      await updateClient(req.body.clientId, { logo: url });
     }
-  }
 
-  res.json({
-    success: true,
-    filename: req.file.filename,
-    url: `/uploads/clients/${req.file.filename}`
-  });
+    res.json({ success: true, filename: req.file.filename, url });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur upload logo.' });
+  }
 });
 
-// Upload catalogue
-app.post('/api/upload/catalog', authMiddleware, upload.single('catalog'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
+app.post('/api/upload/catalog', authMiddleware, upload.single('catalog'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
 
-  const clientId = req.body.clientId;
-  let catalogData = [];
-
-  // Si c'est un JSON, on le parse
-  if (req.file.mimetype === 'application/json' || req.file.originalname.endsWith('.json')) {
-    try {
+    let catalogData = [];
+    if (req.file.mimetype === 'application/json' || req.file.originalname.endsWith('.json')) {
       const content = readFileSync(req.file.path, 'utf-8');
       catalogData = JSON.parse(content);
-    } catch (err) {
-      return res.status(400).json({ error: 'Erreur de parsing du fichier JSON.' });
     }
-  }
 
-  if (clientId) {
-    const clients = getClients();
-    const client = clients.find(c => c.id === clientId);
-    if (client) {
-      client.catalog = catalogData;
-      client.catalogFileName = req.file.originalname;
-      client.updatedAt = new Date().toISOString();
-      saveClients(clients);
+    if (req.body.clientId) {
+      await updateClient(req.body.clientId, {
+        catalog: catalogData,
+        catalog_filename: req.file.originalname
+      });
     }
-  }
 
-  res.json({
-    success: true,
-    filename: req.file.originalname,
-    items: catalogData.length
-  });
+    res.json({ success: true, filename: req.file.originalname, items: catalogData.length });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur upload catalogue.' });
+  }
 });
 
-// ─── Pages Admin (SPA-like redirects) ────────────────────
-const ADMIN_PAGES = ['/', '/dashboard', '/clients', '/client'];
+// ─── Pages Admin ─────────────────────────────────────────
 app.get('/admin*', (req, res) => {
-  // Servir le bon fichier HTML basé sur le chemin
   let page = 'login.html';
   const pathname = req.path.replace('/admin', '') || '/';
 
@@ -406,12 +281,9 @@ app.get('/admin*', (req, res) => {
   res.sendFile(path.join(__dirname, 'admin', page));
 });
 
-// ─── Redirection racine ───────────────────────────────────
-app.get('/', (req, res) => {
-  res.redirect('/admin');
-});
+app.get('/', (req, res) => res.redirect('/admin'));
 
-// ─── Démarrage ────────────────────────────────────────────
+// ─── Start ─────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log('');
   console.log('╔═══════════════════════════════════════════════╗');

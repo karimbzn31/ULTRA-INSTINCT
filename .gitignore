@@ -1,5 +1,6 @@
 node_modules/
 .env
+!.env.example
 uploads/clients/*
 !uploads/clients/.gitkeep
 data/*.json
