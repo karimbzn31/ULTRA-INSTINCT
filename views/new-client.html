@@ -284,7 +284,12 @@
     }
 
     function nextStep() {
+      // Valider l'étape actuelle avant de passer à la suivante
       if (currentStep === 0 && !validateStep1()) return;
+      if (currentStep === 1 && !validateStep2()) return;
+      if (currentStep === 2 && !validateStep3()) return;
+      if (currentStep === 3 && !validateStep4()) return;
+
       if (currentStep < totalSteps - 1) { currentStep++; updateSteps(); if (currentStep === 4) updateSummary(); }
     }
 
@@ -296,7 +301,56 @@
       const name = document.getElementById('name').value.trim();
       const email = document.getElementById('email').value.trim();
       if (!name || !email) {
-        showError('Le nom et l\'email sont requis.');
+        showError('❌ Le nom et l\'email sont requis.');
+        return false;
+      }
+      return true;
+    }
+
+    function validateStep2() {
+      // Vérifier qu'au moins une plateforme est cochée
+      const hasPlatform = document.getElementById('platMessenger').checked
+        || document.getElementById('platInstagram').checked
+        || document.getElementById('platWhatsapp').checked
+        || document.getElementById('platTelegram').checked;
+      if (!hasPlatform) {
+        showError('❌ Coche au moins une plateforme (Messenger, Instagram...)');
+        return false;
+      }
+
+      // Vérifier les clés API selon les capacités
+      const caps = document.querySelector('input[name="capabilities"]:checked')?.value || 'text';
+      const hasGemini = document.getElementById('geminiKey').value.trim();
+      const hasWhisper = document.getElementById('whisperKey').value.trim();
+
+      if ((caps === 'text_image' || caps === 'text_image_audio') && !hasGemini) {
+        // Avertir mais ne pas bloquer (la clé globale peut exister)
+        if (!confirm('⚠️ Tu as coché "Images" mais tu n\'as pas mis de clé Gemini.\n\nLe bot utilisera la clé globale du serveur si elle existe.\nSinon, les images ne fonctionneront pas.\n\nContinuer quand même ?')) {
+          return false;
+        }
+      }
+      if (caps === 'text_image_audio' && !hasWhisper) {
+        if (!confirm('⚠️ Tu as coché "Audio" mais tu n\'as pas mis de clé Whisper.\n\nLe bot utilisera la clé globale du serveur si elle existe.\nSinon, les audios ne fonctionneront pas.\n\nContinuer quand même ?')) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    function validateStep3() {
+      const price = document.getElementById('price').value;
+      if (!price || parseFloat(price) <= 0) {
+        // Le prix est optionnel, on avertit mais on bloque pas
+        return true;
+      }
+      return true;
+    }
+
+    function validateStep4() {
+      const prompt = document.getElementById('prompt').value.trim();
+      if (!prompt || prompt.length < 10) {
+        showError('❌ Le prompt doit contenir au moins 10 caractères.');
         return false;
       }
       return true;
