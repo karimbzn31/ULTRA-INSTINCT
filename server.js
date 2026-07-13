@@ -370,6 +370,30 @@ app.post('/api/upload/catalog', authMiddleware, upload.single('catalog'), async 
 app.get('/webhook', verifyWebhook);
 app.post('/webhook', handleIncoming);
 
+// ─── Test manuel du bot (POST) ──────────────────────────
+app.post('/api/test-bot', async (req, res) => {
+  try {
+    const { clientId, message } = req.body;
+    if (!clientId || !message) return res.status(400).json({ error: 'clientId et message requis' });
+
+    const { generateReply } = await import('./bot/engine.js');
+    const reply = await generateReply(clientId, 'test', 'test_user', 'text', message, null);
+
+    res.json({ reply });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Global error handler (empêche les crashs Express) ──
+app.use((err, req, res, next) => {
+  console.error('[Server] Erreur non gérée:', err.message || err);
+  if (req.path.startsWith('/api/')) {
+    return res.status(500).json({ error: 'Erreur serveur interne.' });
+  }
+  next(err);
+});
+
 // ─── Pages Admin (routes explicites, pas de wildcard) ─────
 function servePage(page) {
   return (req, res) => {

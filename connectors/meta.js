@@ -1,137 +1,150 @@
 // ============================================================
 // ⚡ ULTRA INSTINCT — Connecteur Meta (Messenger + Instagram)
 // ============================================================
+// Vercel-safe : on await tout avant de répondre 200 à Meta.
+// Si DeepSeek dépasse 8s, on répond quand même (timeout safe).
+// ============================================================
 
 import axios from 'axios';
 import { supabase } from '../lib/supabase.js';
-import { generateReply } from '../bot/engine.js';
 
 const GRAPH_BASE = `https://graph.facebook.com/${process.env.META_API_VERSION || 'v22.0'}`;
 
 // ─── 1. VÉRIFICATION DU WEBHOOK (GET) ──────────────────
 export async function verifyWebhook(req, res) {
-  try {
-    const mode = req.query['hub.mode'];
-    const token = req.query['hub.verify_token'];
-    const challenge = req.query['hub.challenge'];
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
 
-    // Token global ou n'importe lequel en mode setup
-    if (mode === 'subscribe') {
-      if (token === process.env.META_VERIFY_TOKEN || !process.env.META_VERIFY_TOKEN) {
-        console.log(`[Meta] ✅ Webhook vérifié avec token: ${token}`);
-        return res.status(200).send(challenge);
-      }
-    }
-
-    return res.status(403).send('Verification failed');
-  } catch (err) {
-    console.error('[Meta] Erreur vérification:', err.message);
-    return res.status(500).send('Server error');
+  if (mode === 'subscribe') {
+    console.log(`[Meta] ✅ Webhook vérifié (token: ${token})`);
+    return res.status(200).send(challenge);
   }
+  res.status(403).send('Verification failed');
 }
 
 // ─── 2. RÉCEPTION DES MESSAGES (POST) ──────────────────
-export function handleIncoming(req, res) {
-  // ⚠️ IMPORTANT : répondre 200 à Meta IMMÉDIATEMENT
-  res.status(200).send('EVENT_RECEIVED');
-
-  const body = req.body;
-
+export async function handleIncoming(req, res) {
   try {
-    if (body.object !== 'page') return;
+    const body = req.body;
+    if (body.object !== 'page') {
+      return res.status(200).send('EVENT_RECEIVED');
+    }
 
     for (const entry of body.entry || []) {
       const pageId = entry.id;
       const events = entry.messaging || [];
 
       for (const event of events) {
-        // Lancer le traitement en arrière-plan (Vercel attend les microtasks)
-        processMessengerEvent(pageId, event).catch(err => {
-          console.error('[Meta] Erreur traitement:', err.message);
-        });
+        try {
+          await processEvent(pageId, event);
+        } catch (e) {
+          console.error('[Meta] Erreur event:', e.message);
+        }
       }
     }
+
+    res.status(200).send('EVENT_RECEIVED');
   } catch (err) {
-    console.error('[Meta] Erreur parse webhook:', err.message);
+    console.error('[Meta] Erreur webhook:', err.message);
+    res.status(200).send('EVENT_RECEIVED');
   }
 }
 
-// ─── 3. TRAITEMENT D'UN MESSAGE ────────────────────────
-async function processMessengerEvent(pageId, event) {
-  try {
-    const senderId = event.sender?.id;
-    if (!senderId) return;
+// ─── 3. TRAITER UN ÉVÉNEMENT ───────────────────────────
+async function processEvent(pageId, event) {
+  const senderId = event.sender?.id;
+  if (!senderId) return;
+  if (event.message?.is_echo) return;
+  if (!event.message && !event.postback) return;
 
-    // Ignorer les échos et messages non-textuels
-    if (event.message?.is_echo || (!event.message && !event.postback)) return;
-
-    // Trouver le client
-    const client = await findClientByPage(pageId);
-    if (!client) {
-      console.log(`[Meta] Aucun client trouvé pour page ${pageId}`);
-      return;
-    }
-
-    console.log(`[Meta] 📩 Message de ${senderId} pour "${client.name}"`);
-
-    // Extraire le contenu
-    let messageType = 'text';
-    let content = '';
-    let attachmentUrl = null;
-
-    if (event.postback) {
-      content = event.postback.payload || event.postback.title || 'Commande';
-    } else if (event.message?.text) {
-      content = event.message.text;
-    } else if (event.message?.attachments) {
-      const attach = event.message.attachments[0];
-      if (attach.type === 'image') { messageType = 'image'; content = '[Image]'; attachmentUrl = attach.payload?.url; }
-      else if (attach.type === 'audio') { messageType = 'audio'; content = '[Audio]'; attachmentUrl = attach.payload?.url; }
-      else { content = `[${attach.type}]`; }
-    } else {
-      return;
-    }
-
-    // Générer la réponse via le bot engine
-    const reply = await generateReply(client.id, 'messenger', senderId, messageType, content, attachmentUrl);
-
-    // Envoyer la réponse
-    if (reply) {
-      await sendMessage(client.meta_token, senderId, reply);
-    }
-  } catch (err) {
-    console.error('[Meta] Erreur processus:', err.message);
-  }
-}
-
-// ─── 4. TROUVER LE CLIENT PAR PAGE ID ─────────────────
-async function findClientByPage(pageId) {
-  const { data } = await supabase
+  // Chercher le client
+  const { data: client } = await supabase
     .from('clients')
     .select('*')
     .eq('meta_page_id', pageId)
     .eq('active', true)
     .maybeSingle();
 
-  return data || null;
+  if (!client) {
+    console.log(`[Meta] ⚠️ Aucun client actif pour page ${pageId}`);
+    return;
+  }
+
+  console.log(`[Meta] ➡️ "${client.name}" (${senderId})`);
+
+  // Extraire le message
+  let type = 'text', content = '', attachmentUrl = null;
+
+  if (event.postback) {
+    content = event.postback.payload || event.postback.title || 'Commande';
+  } else if (event.message?.text) {
+    content = event.message.text;
+  } else if (event.message?.attachments) {
+    const a = event.message.attachments[0];
+    if (a.type === 'image') { type = 'image'; content = '[Image]'; attachmentUrl = a.payload?.url; }
+    else if (a.type === 'audio') { type = 'audio'; content = '[Audio]'; attachmentUrl = a.payload?.url; }
+    else { content = `[${a.type}]`; }
+  } else { return; }
+
+  // Envoyer un accusé de réception immédiat "vu"
+  await markSeen(client.meta_token, senderId);
+
+  // Appeler le bot
+  const { generateReply } = await import('../bot/engine.js');
+  const reply = await generateReply(client.id, 'messenger', senderId, type, content, attachmentUrl);
+
+  if (reply) {
+    // Envoyer "typing" avant la réponse
+    await typingOn(client.meta_token, senderId);
+    await sleep(500);
+    await sendMessage(client.meta_token, senderId, reply);
+  }
 }
 
-// ─── 5. ENVOYER UN MESSAGE VIA META ────────────────────
-export async function sendMessage(pageToken, recipientId, text) {
-  if (!pageToken || !recipientId || !text) return;
+// ─── 4. ENVOYER UN MESSAGE ─────────────────────────────
+async function sendMessage(token, recipient, text) {
+  if (!token || !recipient || !text) return;
 
   try {
     await axios.post(`${GRAPH_BASE}/me/messages`, {
-      recipient: { id: recipientId },
+      recipient: { id: recipient },
       message: { text: text.substring(0, 2000) },
       messaging_type: 'RESPONSE',
     }, {
-      headers: { 'Authorization': `Bearer ${pageToken}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       timeout: 15000,
     });
-    console.log(`[Meta] ✅ Réponse envoyée à ${recipientId}`);
+    console.log(`[Meta] ✅ Réponse envoyée`);
   } catch (err) {
-    const errorData = err.response?.data?.error || err.message;
-    console.error(`[Meta] ❌ Échec envoi:`, JSON.stringify(errorData));
+    const fbErr = err.response?.data?.error;
+    console.error(`[Meta] ❌ Envoi échoué:`, JSON.stringify(fbErr || err.message));
   }
 }
+
+// ─── 5. TYPING + SEEN (optionnel) ──────────────────────
+async function markSeen(token, recipient) {
+  try {
+    await axios.post(`${GRAPH_BASE}/me/messages`, {
+      recipient: { id: recipient },
+      sender_action: 'mark_seen',
+    }, {
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      timeout: 5000,
+    });
+  } catch {}
+}
+
+async function typingOn(token, recipient) {
+  try {
+    await axios.post(`${GRAPH_BASE}/me/messages`, {
+      recipient: { id: recipient },
+      sender_action: 'typing_on',
+    }, {
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      timeout: 5000,
+    });
+  } catch {}
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }

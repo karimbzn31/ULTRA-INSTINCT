@@ -2,4 +2,4 @@
 // ⚡ ULTRA INSTINCT — Index des connecteurs
 // ============================================================
 
-export { verifyWebhook, handleIncoming, sendMessage } from './meta.js';
+export { verifyWebhook, handleIncoming } from './meta.js';
