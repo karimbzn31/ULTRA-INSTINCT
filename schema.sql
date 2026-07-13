@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS clients (
   prompt TEXT DEFAULT '',
   api_key TEXT DEFAULT '',
   api_model TEXT DEFAULT 'deepseek-v4-flash-free',
+  gemini_api_key TEXT DEFAULT '',
+  whisper_api_key TEXT DEFAULT '',
   meta_token TEXT DEFAULT '',               -- Page Access Token Facebook
   meta_verify_token TEXT DEFAULT '',         -- Verify Token pour le webhook
   meta_page_id TEXT DEFAULT '',              -- Facebook Page ID

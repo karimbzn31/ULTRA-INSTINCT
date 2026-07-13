@@ -158,6 +158,14 @@
                 <div><label class="form-label">Page ID</label><input type="text" id="pageId" class="form-input font-mono text-xs" placeholder="123456789" /></div>
                 <div><label class="form-label">Verify Token</label><input type="text" id="verifyToken" class="form-input font-mono text-xs" placeholder="mon_token" /></div>
               </div>
+              <div>
+                <label class="form-label">🖼️ Clé Gemini (images) — optionnelle</label>
+                <input type="text" id="geminiKey" class="form-input font-mono text-xs" placeholder="AIzaSy..." />
+              </div>
+              <div>
+                <label class="form-label">🎤 Clé Whisper (audio) — optionnelle</label>
+                <input type="text" id="whisperKey" class="form-input font-mono text-xs" placeholder="sk-..." />
+              </div>
             </div>
           </div>
           <div class="flex justify-between mt-6">
@@ -242,7 +250,9 @@
               <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">Plateformes</span><span class="text-white" id="sumPlatforms">—</span></div>
               <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">Capacités</span><span class="text-white" id="sumCapabilities">—</span></div>
               <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">Prix</span><span class="text-white" id="sumPrice">—</span></div>
-              <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">API perso</span><span class="text-white" id="sumApi">—</span></div>
+              <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">API OpenCode</span><span class="text-white" id="sumApi">—</span></div>
+              <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">Gemini (images)</span><span class="text-white" id="sumGemini">—</span></div>
+              <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">Whisper (audio)</span><span class="text-white" id="sumWhisper">—</span></div>
             </div>
           </div>
           <div class="flex justify-between mt-6">
@@ -315,7 +325,9 @@
       const deliveryFree = document.getElementById('deliveryFree').value === 'true';
       document.getElementById('sumPrice').textContent = price ? `${price} ${currency}${deliveryFree ? ' (livraison offerte)' : ''}` : 'Non défini';
 
-      document.getElementById('sumApi').textContent = document.getElementById('apiKey').value ? '✅ Clé personnelle' : '🌐 Clé globale';
+      document.getElementById('sumApi').textContent = document.getElementById('apiKey').value ? '✅ Personnelle' : '🌐 Globale';
+      document.getElementById('sumGemini').textContent = document.getElementById('geminiKey').value ? '✅ Personnelle' : '🌐 Globale';
+      document.getElementById('sumWhisper').textContent = document.getElementById('whisperKey').value ? '✅ Personnelle' : '🌐 Globale';
     }
 
     // ─── LIVRAISON ═══
@@ -384,6 +396,8 @@
           notes: document.getElementById('notes').value,
           api_key: document.getElementById('apiKey').value,
           api_model: document.getElementById('apiModel').value,
+          gemini_api_key: document.getElementById('geminiKey').value,
+          whisper_api_key: document.getElementById('whisperKey').value,
           meta_token: document.getElementById('metaToken').value,
           meta_page_id: document.getElementById('pageId').value,
           meta_verify_token: document.getElementById('verifyToken').value,

@@ -9,10 +9,9 @@ import axios from 'axios';
 import FormData from 'form-data';
 
 // ─── Analyse d'image avec Gemini ─────────────────────────
-export async function analyzeImage(imageUrl) {
-  const apiKey = process.env.GOOGLE_AI_API_KEY;
+export async function analyzeImage(imageUrl, apiKey) {
   if (!apiKey) {
-    console.warn('[Media] ⚠️ GOOGLE_AI_API_KEY non configurée');
+    console.warn('[Media] ⚠️ Clé Gemini manquante');
     return null;
   }
 
@@ -44,10 +43,9 @@ export async function analyzeImage(imageUrl) {
 }
 
 // ─── Transcription audio avec Whisper ────────────────────
-export async function transcribeAudio(audioUrl) {
-  const apiKey = process.env.OPENAI_API_KEY;
+export async function transcribeAudio(audioUrl, apiKey) {
   if (!apiKey) {
-    console.warn('[Media] ⚠️ OPENAI_API_KEY non configurée');
+    console.warn('[Media] ⚠️ Clé Whisper manquante');
     return null;
   }
 

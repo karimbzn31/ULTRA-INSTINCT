@@ -67,7 +67,8 @@ export async function generateReply(clientId, platform, senderId, messageType, c
     if (messageType === 'image') {
       // Image → Analyse avec Gemini
       console.log('[Bot] 🔍 Analyse image...');
-      const imageAnalysis = await analyzeImage(attachmentUrl);
+      const geminiKey = client.gemini_api_key || process.env.GOOGLE_AI_API_KEY || '';
+      const imageAnalysis = await analyzeImage(attachmentUrl, geminiKey);
       if (imageAnalysis) {
         mediaDescription = `\n[L'utilisateur a envoyé une image. Analyse de l'image : ${imageAnalysis}]`;
         console.log('[Bot] ✅ Image analysée par Gemini');
@@ -79,7 +80,8 @@ export async function generateReply(clientId, platform, senderId, messageType, c
     } else if (messageType === 'audio') {
       // Audio → Transcription Whisper puis DeepSeek
       console.log('[Bot] 🎤 Transcription audio...');
-      const transcription = await transcribeAudio(attachmentUrl);
+      const whisperKey = client.whisper_api_key || process.env.OPENAI_API_KEY || '';
+      const transcription = await transcribeAudio(attachmentUrl, whisperKey);
       if (transcription) {
         mediaDescription = `\n[L'utilisateur a envoyé un message vocal. Transcription : "${transcription}"]`;
         console.log('[Bot] ✅ Audio transcrit par Whisper');

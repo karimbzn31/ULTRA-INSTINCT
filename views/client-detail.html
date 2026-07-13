@@ -156,6 +156,24 @@
               </div>
             </div>
 
+            <div>
+              <label class="form-label">🖼️ Clé API Gemini (images)</label>
+              <div class="flex gap-2">
+                <input type="password" id="editGeminiKey" class="form-input flex-1 font-mono text-xs" placeholder="AIzaSy..." />
+                <button type="button" onclick="toggleField('editGeminiKey')" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-purple-300 hover:text-white transition text-sm">👁️</button>
+              </div>
+              <p class="text-purple-300/40 text-xs mt-1">Pour l'analyse d'images. Laisse vide = clé globale du serveur.</p>
+            </div>
+
+            <div>
+              <label class="form-label">🎤 Clé API Whisper (audio)</label>
+              <div class="flex gap-2">
+                <input type="password" id="editWhisperKey" class="form-input flex-1 font-mono text-xs" placeholder="sk-..." />
+                <button type="button" onclick="toggleField('editWhisperKey')" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-purple-300 hover:text-white transition text-sm">👁️</button>
+              </div>
+              <p class="text-purple-300/40 text-xs mt-1">Pour la transcription des messages vocaux. Laisse vide = clé globale.</p>
+            </div>
+
           </div>
           <div class="mt-4 p-3 bg-white/5 rounded-xl text-xs text-purple-300/60">
             💡 <strong>Configurer le bot Messenger :</strong> Va sur <span class="text-purple-300">developers.facebook.com</span> → Ton App → Messenger → Webhook.
@@ -318,6 +336,8 @@
       document.getElementById('editMetaToken').value = c.meta_token || '';
       document.getElementById('editPageId').value = c.meta_page_id || '';
       document.getElementById('editVerifyToken').value = c.meta_verify_token || '';
+      document.getElementById('editGeminiKey').value = c.gemini_api_key || '';
+      document.getElementById('editWhisperKey').value = c.whisper_api_key || '';
 
       // Pricing
       const p = c.pricing || {};
@@ -395,6 +415,8 @@
           notes: document.getElementById('editNotes').value,
           api_key: document.getElementById('editApiKey').value,
           api_model: document.getElementById('editApiModel').value,
+          gemini_api_key: document.getElementById('editGeminiKey').value,
+          whisper_api_key: document.getElementById('editWhisperKey').value,
           meta_token: document.getElementById('editMetaToken').value,
           meta_page_id: document.getElementById('editPageId').value,
           meta_verify_token: document.getElementById('editVerifyToken').value,
