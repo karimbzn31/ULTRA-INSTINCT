@@ -57,26 +57,34 @@ export async function verifyWebhook(req, res) {
 }
 
 // ─── 2. RÉCEPTION DES MESSAGES (POST) ──────────────────
-export function handleIncoming(req, res) {
-  // Meta exige une réponse 200 immédiate
-  res.status(200).send('EVENT_RECEIVED');
-
+export async function handleIncoming(req, res) {
   const body = req.body;
 
-  if (body.object === 'page') {
-    for (const entry of body.entry || []) {
-      const pageId = entry.id;
-
-      for (const event of entry.messaging || []) {
-        processMessengerEvent(pageId, event).catch(err => {
-          console.error('[Meta] Erreur traitement:', err.message);
-        });
+  try {
+    if (body.object === 'page') {
+      for (const entry of body.entry || []) {
+        const pageId = entry.id;
+        for (const event of entry.messaging || []) {
+          await processMessengerEvent(pageId, event);
+        }
+      }
+    } else if (body.object === 'instagram') {
+      for (const entry of body.entry || []) {
+        for (const change of entry.changes || []) {
+          if (change.field === 'messages') {
+            await processInstagramEvent(change.value, entry.id);
+          }
+        }
       }
     }
-  } else if (body.object === 'instagram') {
-    for (const entry of body.entry || []) {
-      for (const change of entry.changes || []) {
-        if (change.field === 'messages') {
+  } catch (err) {
+    console.error('[Meta] Erreur traitement:', err.message);
+  }
+
+  // Meta exige une réponse 200
+  // On répond APRÈS le traitement pour que Vercel ne tue pas la fonction
+  res.status(200).send('EVENT_RECEIVED');
+}
           processInstagramEvent(change.value, entry.id).catch(err => {
             console.error('[Meta] Erreur Instagram:', err.message);
           });
