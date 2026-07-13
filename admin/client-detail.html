@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ultra Instinct — Détail client</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/admin/assets/style.css" />
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <span class="text-2xl">⚡</span>
+        <span class="sidebar-title">Ultra Instinct</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="/admin/dashboard" class="nav-item"><span>📊</span> Tableau de bord</a>
+        <a href="/admin/clients" class="nav-item"><span>👥</span> Clients</a>
+        <a href="/admin/new-client" class="nav-item"><span>➕</span> Nouveau client</a>
+        <div class="nav-spacer"></div>
+        <button onclick="logout()" class="nav-item text-red-400 hover:text-red-300"><span>🚪</span> Déconnexion</button>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <header class="main-header">
+        <button class="md:hidden text-white text-2xl mr-4" onclick="toggleSidebar()">☰</button>
+        <h1 class="text-2xl font-bold text-white" id="pageTitle">Client</h1>
+        <div class="ml-auto flex items-center gap-3">
+          <span class="text-purple-300/70 text-sm" id="adminName"></span>
+        </div>
+      </header>
+
+      <!-- Loading / Error -->
+      <div id="loadingState" class="text-center py-12 text-purple-300/50">Chargement du client...</div>
+      <div id="errorState" class="section-card hidden text-center py-12">
+        <div class="text-5xl mb-4">❌</div>
+        <h3 class="text-xl text-white mb-2">Client introuvable</h3>
+        <a href="/admin/clients" class="btn-primary">← Retour aux clients</a>
+      </div>
+
+      <div id="clientContent" class="hidden space-y-6">
+        <!-- En-tête client avec toggle -->
+        <div class="section-card">
+          <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+              <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-2xl font-bold text-white" id="clientAvatar"></div>
+              <div>
+                <h2 class="text-2xl font-bold text-white" id="clientName">—</h2>
+                <p class="text-purple-300/50 text-sm" id="clientCompany">—</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-purple-300/70">Statut :</span>
+              <button id="toggleBtn" onclick="toggleClient()" class="status-dot cursor-pointer hover:opacity-80 transition px-4 py-1.5">
+                Actif
+              </button>
+              <button onclick="deleteClient()" class="btn-danger text-sm" title="Supprimer définitivement">🗑️ Supprimer</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Infos générales -->
+        <div class="section-card">
+          <h2 class="text-lg font-semibold text-white mb-4">📋 Informations</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="form-label">Nom</label>
+              <input type="text" id="editName" class="form-input" />
+            </div>
+            <div>
+              <label class="form-label">Email</label>
+              <input type="email" id="editEmail" class="form-input" />
+            </div>
+            <div>
+              <label class="form-label">Téléphone</label>
+              <input type="text" id="editPhone" class="form-input" />
+            </div>
+            <div>
+              <label class="form-label">Société</label>
+              <input type="text" id="editCompany" class="form-input" />
+            </div>
+            <div>
+              <label class="form-label">Type d'activité</label>
+              <select id="editBusinessType" class="form-input">
+                <option value="boutique">🛍️ Boutique / E-commerce</option>
+                <option value="immobilier">🏠 Immobilier</option>
+                <option value="saas">💻 SaaS / Tech</option>
+                <option value="service">🛠️ Service client</option>
+                <option value="restaurant">🍽️ Restaurant / Livraison</option>
+                <option value="autre">Autre</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">ID Client</label>
+              <input type="text" id="clientId" readonly class="form-input opacity-50 cursor-not-allowed" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Plateformes -->
+        <div class="section-card">
+          <h2 class="text-lg font-semibold text-white mb-4">📱 Plateformes connectées</h2>
+          <div class="flex flex-wrap gap-4">
+            <label class="platform-checkbox"><input type="checkbox" id="platMessenger" /> 💬 Messenger</label>
+            <label class="platform-checkbox"><input type="checkbox" id="platInstagram" /> 📸 Instagram</label>
+            <label class="platform-checkbox"><input type="checkbox" id="platWhatsapp" /> 💚 WhatsApp</label>
+            <label class="platform-checkbox"><input type="checkbox" id="platTelegram" /> ✈️ Telegram</label>
+          </div>
+        </div>
+
+        <!-- Logo -->
+        <div class="section-card">
+          <h2 class="text-lg font-semibold text-white mb-4">🖼️ Logo / Image du bot</h2>
+          <div class="flex items-center gap-4">
+            <div id="logoPreview" class="w-20 h-20 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-3xl overflow-hidden">
+              📷
+            </div>
+            <div>
+              <input type="file" id="logoInput" accept="image/*" class="text-sm text-purple-300/70 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-purple-600/20 file:text-purple-300 file:text-sm file:cursor-pointer hover:file:bg-purple-600/30 transition" />
+              <p class="text-purple-300/40 text-xs mt-1">PNG, JPG, WEBP — 10MB max</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Catalogue -->
+        <div class="section-card">
+          <h2 class="text-lg font-semibold text-white mb-4">📦 Catalogue</h2>
+          <div class="flex flex-wrap items-center gap-4 mb-4">
+            <div>
+              <input type="file" id="catalogInput" accept=".json" class="text-sm text-purple-300/70 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-purple-600/20 file:text-purple-300 file:text-sm file:cursor-pointer hover:file:bg-purple-600/30 transition" />
+              <p class="text-purple-300/40 text-xs mt-1">Fichier JSON (format tableau de produits)</p>
+            </div>
+            <span id="catalogInfo" class="text-sm text-purple-300/50"></span>
+          </div>
+          <div id="catalogPreview" class="hidden">
+            <h4 class="text-sm font-medium text-white mb-2">📄 Aperçu du catalogue</h4>
+            <pre id="catalogJson" class="bg-black/30 rounded-xl p-4 text-xs text-purple-200/70 overflow-x-auto max-h-48 overflow-y-auto"></pre>
+          </div>
+        </div>
+
+        <!-- Prompt -->
+        <div class="section-card">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-semibold text-white">🧠 Prompt personnalisé</h2>
+            <button type="button" onclick="resetPrompt()" class="text-xs text-purple-400 hover:text-purple-300 transition">↩️ Réinitialiser</button>
+          </div>
+          <textarea id="editPrompt" rows="15" class="form-input font-mono text-sm w-full"></textarea>
+          <p class="text-purple-300/40 text-xs mt-2">Ce prompt est injecté dans le LLM à chaque conversation.</p>
+        </div>
+
+        <!-- Stats -->
+        <div class="section-card">
+          <h2 class="text-lg font-semibold text-white mb-4">📊 Statistiques</h2>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="text-center p-4 bg-white/5 rounded-xl">
+              <div class="text-2xl font-bold text-white" id="statMessages">0</div>
+              <div class="text-xs text-purple-300/50">Messages traités</div>
+            </div>
+            <div class="text-center p-4 bg-white/5 rounded-xl">
+              <div class="text-2xl font-bold text-white" id="statOrders">0</div>
+              <div class="text-xs text-purple-300/50">Commandes</div>
+            </div>
+            <div class="text-center p-4 bg-white/5 rounded-xl">
+              <div class="text-2xl font-bold text-white" id="statCreated">—</div>
+              <div class="text-xs text-purple-300/50">Créé le</div>
+            </div>
+            <div class="text-center p-4 bg-white/5 rounded-xl">
+              <div class="text-2xl font-bold text-white" id="statUpdated">—</div>
+              <div class="text-xs text-purple-300/50">Mis à jour</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="section-card">
+          <h2 class="text-lg font-semibold text-white mb-4">📝 Notes internes</h2>
+          <textarea id="editNotes" rows="3" class="form-input w-full" placeholder="Infos supplémentaires..."></textarea>
+        </div>
+
+        <!-- Save -->
+        <div class="flex gap-3 justify-end sticky-bottom">
+          <a href="/admin/clients" class="btn-secondary">← Liste clients</a>
+          <button id="saveBtn" onclick="saveClient()" class="btn-primary">💾 Enregistrer</button>
+          <div id="saveStatus" class="hidden text-green-400 text-sm self-center">✅ Enregistré !</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/admin/assets/app.js"></script>
+  <script>
+    let currentClient = null;
+    const clientId = new URLSearchParams(window.location.search).get('id');
+
+    if (!clientId) {
+      document.getElementById('loadingState').classList.add('hidden');
+      document.getElementById('errorState').classList.remove('hidden');
+    } else {
+      loadClient();
+    }
+
+    async function loadClient() {
+      try {
+        const client = await api(`/api/clients/${clientId}`);
+        currentClient = client;
+        renderClient(client);
+      } catch (err) {
+        document.getElementById('loadingState').classList.add('hidden');
+        document.getElementById('errorState').classList.remove('hidden');
+      }
+    }
+
+    function renderClient(c) {
+      document.getElementById('loadingState').classList.add('hidden');
+      document.getElementById('clientContent').classList.remove('hidden');
+
+      document.getElementById('pageTitle').textContent = `✏️ ${c.name}`;
+      document.getElementById('clientName').textContent = c.name;
+      document.getElementById('clientCompany').textContent = c.company || '—';
+      document.getElementById('clientAvatar').textContent = c.name.charAt(0).toUpperCase();
+      document.getElementById('clientId').value = c.id;
+
+      document.getElementById('editName').value = c.name;
+      document.getElementById('editEmail').value = c.email;
+      document.getElementById('editPhone').value = c.phone || '';
+      document.getElementById('editCompany').value = c.company || '';
+      document.getElementById('editBusinessType').value = c.businessType || 'autre';
+      document.getElementById('editPrompt').value = c.prompt || '';
+      document.getElementById('editNotes').value = c.notes || '';
+
+      document.getElementById('platMessenger').checked = c.platforms?.messenger || false;
+      document.getElementById('platInstagram').checked = c.platforms?.instagram || false;
+      document.getElementById('platWhatsapp').checked = c.platforms?.whatsapp || false;
+      document.getElementById('platTelegram').checked = c.platforms?.telegram || false;
+
+      // Toggle
+      const toggleBtn = document.getElementById('toggleBtn');
+      toggleBtn.textContent = c.active ? '🟢 Actif' : '🔴 Inactif';
+      toggleBtn.className = `status-dot cursor-pointer hover:opacity-80 transition px-4 py-1.5 ${c.active ? 'active' : 'inactive'}`;
+
+      // Logo
+      if (c.logo) {
+        document.getElementById('logoPreview').innerHTML = `<img src="${c.logo}" class="w-full h-full object-cover rounded-xl" />`;
+      } else {
+        document.getElementById('logoPreview').innerHTML = '📷';
+      }
+
+      // Catalogue
+      if (c.catalog && c.catalog.length > 0) {
+        document.getElementById('catalogInfo').textContent = `✅ ${c.catalog.length} produits — ${c.catalogFileName || ''}`;
+        document.getElementById('catalogPreview').classList.remove('hidden');
+        document.getElementById('catalogJson').textContent = JSON.stringify(c.catalog, null, 2);
+      } else {
+        document.getElementById('catalogInfo').textContent = '📭 Aucun catalogue';
+        document.getElementById('catalogPreview').classList.add('hidden');
+      }
+
+      // Stats
+      document.getElementById('statMessages').textContent = c.stats?.messagesProcessed?.toLocaleString() || '0';
+      document.getElementById('statOrders').textContent = c.stats?.ordersCompleted || '0';
+      document.getElementById('statCreated').textContent = formatDate(c.createdAt);
+      document.getElementById('statUpdated').textContent = formatDate(c.updatedAt);
+    }
+
+    async function toggleClient() {
+      try {
+        const data = await api(`/api/clients/${clientId}/toggle`, 'PUT');
+        currentClient.active = data.active;
+        renderClient(currentClient);
+      } catch (err) {
+        showError('Erreur toggle statut');
+      }
+    }
+
+    async function saveClient() {
+      const btn = document.getElementById('saveBtn');
+      btn.disabled = true;
+      btn.textContent = '💾 Enregistrement...';
+
+      try {
+        const updated = await api(`/api/clients/${clientId}`, 'PUT', {
+          name: document.getElementById('editName').value,
+          email: document.getElementById('editEmail').value,
+          phone: document.getElementById('editPhone').value,
+          company: document.getElementById('editCompany').value,
+          businessType: document.getElementById('editBusinessType').value,
+          platforms: {
+            messenger: document.getElementById('platMessenger').checked,
+            instagram: document.getElementById('platInstagram').checked,
+            whatsapp: document.getElementById('platWhatsapp').checked,
+            telegram: document.getElementById('platTelegram').checked,
+          },
+          prompt: document.getElementById('editPrompt').value,
+          notes: document.getElementById('editNotes').value,
+        });
+
+        currentClient = updated;
+        renderClient(updated);
+
+        const status = document.getElementById('saveStatus');
+        status.classList.remove('hidden');
+        setTimeout(() => status.classList.add('hidden'), 3000);
+      } catch (err) {
+        showError('Erreur lors de l\'enregistrement');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Enregistrer';
+      }
+    }
+
+    function resetPrompt() {
+      const name = document.getElementById('editName').value || 'Client';
+      const company = document.getElementById('editCompany').value || name;
+      document.getElementById('editPrompt').value =
+`Tu es un assistant commercial chaleureux et professionnel pour ${company}.
+
+Ton rôle est d'accueillir les clients, les aider à choisir les bons produits/services, et collecter les informations nécessaires.
+
+🌍 LANGUES : Détecte automatiquement la langue du client (français, arabe, darija) et réponds dans la même langue.
+
+💬 SOIS : chaleureux(se), professionnel(le), empathique, naturel(le).
+
+📦 CATALOGUE : Présente uniquement les produits/services disponibles avec leurs prix.
+
+📋 COLLECTE : Demande les infos UNE PAR UNE de façon naturelle. Ne les demande JAMAIS d'un coup.
+
+✅ VALIDATION : Une fois tout confirmé, génère un JSON structuré pour le système.`;
+    }
+
+    async function deleteClient() {
+      if (!confirm('⚠️ Supprimer définitivement ce client et toutes ses données ?')) return;
+      try {
+        await api(`/api/clients/${clientId}`, 'DELETE');
+        showSuccess('Client supprimé');
+        setTimeout(() => window.location.href = '/admin/clients', 1000);
+      } catch (err) {
+        showError('Erreur suppression');
+      }
+    }
+
+    // Upload logo
+    document.getElementById('logoInput').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('logo', file);
+      formData.append('clientId', clientId);
+
+      try {
+        const data = await apiUpload('/api/upload/logo', formData);
+        if (currentClient) {
+          currentClient.logo = data.url;
+          renderClient(currentClient);
+        }
+        showSuccess('✅ Logo uploadé !');
+      } catch (err) {
+        showError('Erreur upload logo');
+      }
+    });
+
+    // Upload catalogue
+    document.getElementById('catalogInput').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('catalog', file);
+      formData.append('clientId', clientId);
+
+      try {
+        const data = await apiUpload('/api/upload/catalog', formData);
+        showSuccess(`✅ Catalogue chargé : ${data.items} produits`);
+        // Recharger le client pour voir le catalogue
+        currentClient = await api(`/api/clients/${clientId}`);
+        renderClient(currentClient);
+      } catch (err) {
+        showError('Erreur upload catalogue : ' + err.message);
+      }
+    });
+  </script>
+</body>
+</html>

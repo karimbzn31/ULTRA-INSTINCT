@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ultra Instinct — Nouveau client</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/admin/assets/style.css" />
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <span class="text-2xl">⚡</span>
+        <span class="sidebar-title">Ultra Instinct</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="/admin/dashboard" class="nav-item"><span>📊</span> Tableau de bord</a>
+        <a href="/admin/clients" class="nav-item"><span>👥</span> Clients</a>
+        <a href="/admin/new-client" class="nav-item active"><span>➕</span> Nouveau client</a>
+        <div class="nav-spacer"></div>
+        <button onclick="logout()" class="nav-item text-red-400 hover:text-red-300"><span>🚪</span> Déconnexion</button>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <header class="main-header">
+        <button class="md:hidden text-white text-2xl mr-4" onclick="toggleSidebar()">☰</button>
+        <h1 class="text-2xl font-bold text-white">➕ Nouveau client</h1>
+        <div class="ml-auto"><span class="text-purple-300/70 text-sm" id="adminName"></span></div>
+      </header>
+
+      <form id="clientForm" class="space-y-6">
+        <!-- Infos générales -->
+        <div class="section-card">
+          <h2 class="text-lg font-semibold text-white mb-4">📋 Informations générales</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="form-label">Nom du contact *</label>
+              <input type="text" id="name" required class="form-input" placeholder="Nom du client" />
+            </div>
+            <div>
+              <label class="form-label">Email *</label>
+              <input type="email" id="email" required class="form-input" placeholder="client@email.com" />
+            </div>
+            <div>
+              <label class="form-label">Téléphone</label>
+              <input type="text" id="phone" class="form-input" placeholder="+213 6XX XX XX XX" />
+            </div>
+            <div>
+              <label class="form-label">Nom de la société</label>
+              <input type="text" id="company" class="form-input" placeholder="Sa Boutique SARL" />
+            </div>
+            <div>
+              <label class="form-label">Type d'activité</label>
+              <select id="businessType" class="form-input">
+                <option value="boutique">🛍️ Boutique / E-commerce</option>
+                <option value="immobilier">🏠 Immobilier</option>
+                <option value="saas">💻 SaaS / Tech</option>
+                <option value="service">🛠️ Service client</option>
+                <option value="restaurant">🍽️ Restaurant / Livraison</option>
+                <option value="autre">Autre</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Plateformes -->
+        <div class="section-card">
+          <h2 class="text-lg font-semibold text-white mb-4">📱 Plateformes</h2>
+          <div class="flex flex-wrap gap-4">
+            <label class="platform-checkbox"><input type="checkbox" id="platMessenger" checked /> 💬 Messenger</label>
+            <label class="platform-checkbox"><input type="checkbox" id="platInstagram" /> 📸 Instagram</label>
+            <label class="platform-checkbox"><input type="checkbox" id="platWhatsapp" /> 💚 WhatsApp</label>
+            <label class="platform-checkbox"><input type="checkbox" id="platTelegram" /> ✈️ Telegram</label>
+          </div>
+        </div>
+
+        <!-- Prompt -->
+        <div class="section-card">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-semibold text-white">🧠 Prompt personnalisé</h2>
+            <button type="button" onclick="resetPrompt()" class="text-xs text-purple-400 hover:text-purple-300 transition">↩️ Réinitialiser</button>
+          </div>
+          <textarea id="prompt" rows="12" class="form-input font-mono text-sm w-full"></textarea>
+          <p class="text-purple-300/40 text-xs mt-2">Ce prompt sera injecté dans le LLM pour définir la personnalité et le comportement du bot.</p>
+        </div>
+
+        <!-- Notes -->
+        <div class="section-card">
+          <h2 class="text-lg font-semibold text-white mb-4">📝 Notes internes</h2>
+          <textarea id="notes" rows="3" class="form-input w-full" placeholder="Infos supplémentaires sur ce client..."></textarea>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex gap-3 justify-end">
+          <a href="/admin/clients" class="btn-secondary">Annuler</a>
+          <button type="submit" id="saveBtn" class="btn-primary">💾 Créer le client</button>
+        </div>
+      </form>
+    </main>
+  </div>
+
+  <script src="/admin/assets/app.js"></script>
+  <script>
+    function getDefaultPrompt(name, company) {
+      return `Tu es un assistant commercial chaleureux et professionnel pour ${company || name}.
+
+Ton rôle est d'accueillir les clients, les aider à choisir les bons produits/services, et collecter les informations nécessaires.
+
+🌍 LANGUES : Détecte automatiquement la langue du client (français, arabe, darija) et réponds dans la même langue.
+
+💬 SOIS : chaleureux(se), professionnel(le), empathique, naturel(le).
+
+📦 CATALOGUE : Présente uniquement les produits/services disponibles avec leurs prix.
+
+📋 COLLECTE : Demande les infos UNE PAR UNE de façon naturelle. Ne les demande JAMAIS d'un coup.
+
+✅ VALIDATION : Une fois tout confirmé, génère un JSON structuré pour le système.`;
+    }
+
+    function resetPrompt() {
+      const name = document.getElementById('name').value || 'Mon Client';
+      const company = document.getElementById('company').value || name;
+      document.getElementById('prompt').value = getDefaultPrompt(name, company);
+    }
+
+    document.getElementById('name').addEventListener('input', resetPrompt);
+    document.getElementById('company').addEventListener('input', resetPrompt);
+
+    // Reset prompt on load
+    resetPrompt();
+
+    document.getElementById('clientForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('saveBtn');
+      btn.disabled = true;
+      btn.textContent = 'Création...';
+
+      try {
+        const data = await api('/api/clients', 'POST', {
+          name: document.getElementById('name').value,
+          email: document.getElementById('email').value,
+          phone: document.getElementById('phone').value,
+          company: document.getElementById('company').value,
+          businessType: document.getElementById('businessType').value,
+          platforms: {
+            messenger: document.getElementById('platMessenger').checked,
+            instagram: document.getElementById('platInstagram').checked,
+            whatsapp: document.getElementById('platWhatsapp').checked,
+            telegram: document.getElementById('platTelegram').checked,
+          },
+          prompt: document.getElementById('prompt').value,
+          notes: document.getElementById('notes').value,
+        });
+
+        showSuccess(`✅ Client "${data.name}" créé avec succès !`);
+        setTimeout(() => {
+          window.location.href = `/admin/client?id=${data.id}`;
+        }, 1000);
+      } catch (err) {
+        showError(err.message);
+        btn.disabled = false;
+        btn.textContent = '💾 Créer le client';
+      }
+    });
+  </script>
+</body>
+</html>

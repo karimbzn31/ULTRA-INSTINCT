@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ultra Instinct — Clients</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/admin/assets/style.css" />
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <span class="text-2xl">⚡</span>
+        <span class="sidebar-title">Ultra Instinct</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="/admin/dashboard" class="nav-item"><span>📊</span> Tableau de bord</a>
+        <a href="/admin/clients" class="nav-item active"><span>👥</span> Clients</a>
+        <a href="/admin/new-client" class="nav-item"><span>➕</span> Nouveau client</a>
+        <div class="nav-spacer"></div>
+        <button onclick="logout()" class="nav-item text-red-400 hover:text-red-300"><span>🚪</span> Déconnexion</button>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <header class="main-header">
+        <button class="md:hidden text-white text-2xl mr-4" onclick="toggleSidebar()">☰</button>
+        <h1 class="text-2xl font-bold text-white">👥 Clients</h1>
+        <div class="ml-auto flex items-center gap-3">
+          <span class="text-purple-300/70 text-sm" id="adminName"></span>
+          <a href="/admin/new-client" class="btn-primary text-sm">➕ Nouveau</a>
+        </div>
+      </header>
+
+      <!-- Filtres -->
+      <div class="flex flex-wrap gap-3 mb-6">
+        <input type="text" id="searchInput" placeholder="Rechercher un client..."
+          class="flex-1 min-w-[200px] px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-purple-300/40 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+        <select id="filterActive" class="px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+          <option value="all">Tous</option>
+          <option value="true">Actifs</option>
+          <option value="false">Inactifs</option>
+        </select>
+      </div>
+
+      <!-- Loading -->
+      <div id="loadingState" class="text-center py-12 text-purple-300/50">Chargement...</div>
+
+      <!-- Table -->
+      <div id="clientsTable" class="section-card hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr class="text-left text-purple-300/70 text-sm uppercase tracking-wider border-b border-white/5">
+                <th class="pb-3 pr-4">Client</th>
+                <th class="pb-3 pr-4 hidden md:table-cell">Société</th>
+                <th class="pb-3 pr-4 hidden lg:table-cell">Plateformes</th>
+                <th class="pb-3 pr-4">Statut</th>
+                <th class="pb-3 pr-4 hidden sm:table-cell">Créé le</th>
+                <th class="pb-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="clientsBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Empty -->
+      <div id="emptyState" class="section-card hidden text-center py-12">
+        <div class="text-5xl mb-4">📭</div>
+        <h3 class="text-xl font-semibold text-white mb-2">Aucun client</h3>
+        <p class="text-purple-300/50 mb-6">Commence par ajouter ton premier client.</p>
+        <a href="/admin/new-client" class="btn-primary">➕ Ajouter un client</a>
+      </div>
+    </main>
+  </div>
+
+  <script src="/admin/assets/app.js"></script>
+  <script>
+    let allClients = [];
+
+    function renderClients(clients) {
+      const tbody = document.getElementById('clientsBody');
+      const table = document.getElementById('clientsTable');
+      const empty = document.getElementById('emptyState');
+      const loading = document.getElementById('loadingState');
+
+      loading.classList.add('hidden');
+
+      if (clients.length === 0) {
+        table.classList.add('hidden');
+        empty.classList.remove('hidden');
+        return;
+      }
+
+      table.classList.remove('hidden');
+      empty.classList.add('hidden');
+
+      tbody.innerHTML = clients.map(c => `
+        <tr class="border-b border-white/5 hover:bg-white/5 transition">
+          <td class="py-3 pr-4">
+            <a href="/admin/client?id=${c.id}" class="text-white font-medium hover:text-purple-400 transition">${c.name}</a>
+            <div class="text-purple-300/50 text-xs">${c.email}</div>
+          </td>
+          <td class="py-3 pr-4 hidden md:table-cell text-purple-200/70">${c.company || '—'}</td>
+          <td class="py-3 pr-4 hidden lg:table-cell">
+            <div class="flex gap-1">
+              ${c.platforms?.messenger ? '<span class="platform-icon" title="Messenger">💬</span>' : ''}
+              ${c.platforms?.instagram ? '<span class="platform-icon" title="Instagram">📸</span>' : ''}
+              ${c.platforms?.whatsapp ? '<span class="platform-icon" title="WhatsApp">💚</span>' : ''}
+              ${c.platforms?.telegram ? '<span class="platform-icon" title="Telegram">✈️</span>' : ''}
+              ${!c.platforms?.messenger && !c.platforms?.instagram && !c.platforms?.whatsapp && !c.platforms?.telegram ? '<span class="text-purple-300/30 text-xs">Aucune</span>' : ''}
+            </div>
+          </td>
+          <td class="py-3 pr-4">
+            <button onclick="toggleClient('${c.id}')" class="status-dot ${c.active ? 'active' : 'inactive'} cursor-pointer hover:opacity-80 transition">
+              ${c.active ? 'Actif' : 'Inactif'}
+            </button>
+          </td>
+          <td class="py-3 pr-4 hidden sm:table-cell text-purple-300/50 text-sm">${formatDate(c.createdAt)}</td>
+          <td class="py-3">
+            <div class="flex gap-2">
+              <a href="/admin/client?id=${c.id}" class="text-purple-400 hover:text-purple-300 transition text-sm" title="Modifier">✏️</a>
+              <button onclick="deleteClient('${c.id}')" class="text-red-400 hover:text-red-300 transition text-sm" title="Supprimer">🗑️</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function filterClients() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const active = document.getElementById('filterActive').value;
+
+      let filtered = allClients;
+
+      if (search) {
+        filtered = filtered.filter(c =>
+          c.name?.toLowerCase().includes(search) ||
+          c.company?.toLowerCase().includes(search) ||
+          c.email?.toLowerCase().includes(search)
+        );
+      }
+
+      if (active !== 'all') {
+        filtered = filtered.filter(c => c.active === (active === 'true'));
+      }
+
+      renderClients(filtered);
+    }
+
+    async function toggleClient(id) {
+      try {
+        const data = await api(`/api/clients/${id}/toggle`, 'PUT');
+        const client = allClients.find(c => c.id === id);
+        if (client) client.active = data.active;
+        filterClients();
+      } catch (err) {
+        showError('Erreur lors du changement de statut');
+      }
+    }
+
+    async function deleteClient(id) {
+      if (!confirm('Supprimer ce client définitivement ?')) return;
+      try {
+        await api(`/api/clients/${id}`, 'DELETE');
+        allClients = allClients.filter(c => c.id !== id);
+        filterClients();
+      } catch (err) {
+        showError('Erreur lors de la suppression');
+      }
+    }
+
+    async function loadClients() {
+      try {
+        allClients = await api('/api/clients');
+        renderClients(allClients);
+      } catch (err) {
+        document.getElementById('loadingState').innerHTML =
+          '<div class="text-red-400">❌ Erreur de chargement. Vérifie que le serveur tourne.</div>';
+      }
+    }
+
+    document.getElementById('searchInput').addEventListener('input', filterClients);
+    document.getElementById('filterActive').addEventListener('change', filterClients);
+
+    loadClients();
+  </script>
+</body>
+</html>
