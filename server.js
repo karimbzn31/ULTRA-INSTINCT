@@ -47,6 +47,10 @@ function ensureDir(dir) {
   }
 }
 ensureDir(UPLOAD_DIR);
+const PRODUCTS_UPLOAD_DIR = isVercel
+  ? path.join('/tmp', 'uploads', 'products')
+  : path.join(__dirname, 'uploads', 'products');
+ensureDir(PRODUCTS_UPLOAD_DIR);
 
 // ─── Multer ────────────────────────────────────────────────
 const storage = multer.diskStorage({
@@ -149,6 +153,7 @@ app.use(express.urlencoded({ extended: true }));
 // Static files
 app.use('/assets', express.static(path.join(__dirname, 'views', 'assets')));
 app.use('/uploads', express.static(UPLOAD_DIR));
+app.use('/uploads/products', express.static(path.join(__dirname, 'uploads', 'products')));
 
 // ─── Auth middleware ────────────────────────────────────────
 function authMiddleware(req, res, next) {
@@ -337,6 +342,32 @@ app.post('/api/upload/catalog', authMiddleware, upload.single('catalog'), async 
 // ─── Webhook Meta (Messenger + Instagram) ──────────────
 app.get('/webhook', verifyWebhook);
 app.post('/webhook', handleIncoming);
+
+// ─── Upload image produit ────────────────────────────────
+const productUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, PRODUCTS_UPLOAD_DIR),
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname);
+      cb(null, `prod_${Date.now()}_${Math.random().toString(36).slice(2, 6)}${ext}`);
+    }
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (/\.(jpg|jpeg|png|gif|webp)$/i.test(path.extname(file.originalname))) return cb(null, true);
+    cb(new Error('Seulement les images (jpg, png, gif, webp)'));
+  }
+});
+
+app.post('/api/upload/product-image', authMiddleware, productUpload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
+    const url = `/uploads/products/${req.file.filename}`;
+    res.json({ success: true, url, filename: req.file.filename });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur upload image.' });
+  }
+});
 
 // ─── Test manuel du bot (POST) ──────────────────────────
 app.post('/api/test-bot', async (req, res) => {
