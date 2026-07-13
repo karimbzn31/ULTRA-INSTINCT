@@ -8,6 +8,7 @@
 import axios from 'axios';
 import { supabase, getClient } from '../lib/supabase.js';
 import { getSession, saveSession, addToHistory, getHistory } from './session.js';
+import { analyzeImage, transcribeAudio } from './media.js';
 
 // ─── Configuration par défaut ─────────────────────────────
 const OPENCODE_BASE = (process.env.OPENCODE_BASE_URL || 'https://opencode.ai/zen/v1').replace(/\/+$/, '');
@@ -59,18 +60,36 @@ export async function generateReply(clientId, platform, senderId, messageType, c
 
     addToHistory(clientId, platform, senderId, 'user', userMessage);
 
-    // 8. Appeler le LLM selon le type
+    // 8. Traiter selon le type de message
     let reply;
+    let mediaDescription = '';
 
-    if (messageType === 'image' && capabilities === 'text_image_audio') {
-      // Image → Gemini (si configuré) ou DeepSeek avec description
-      reply = await callLLM(history, systemPrompt, apiKey, model);
-      reply = `[Image reçue] ${reply}`;
+    if (messageType === 'image') {
+      // Image → Analyse avec Gemini
+      console.log('[Bot] 🔍 Analyse image...');
+      const imageAnalysis = await analyzeImage(attachmentUrl);
+      if (imageAnalysis) {
+        mediaDescription = `\n[L'utilisateur a envoyé une image. Analyse de l'image : ${imageAnalysis}]`;
+        console.log('[Bot] ✅ Image analysée par Gemini');
+      } else {
+        mediaDescription = "\n[L'utilisateur a envoyé une image mais je n'ai pas pu l'analyser. Demande-lui de décrire.]";
+      }
+      reply = await callLLM(history, systemPrompt + mediaDescription, apiKey, model);
+
     } else if (messageType === 'audio') {
-      // Audio → Whisper puis DeepSeek
-      reply = await callLLM(history, systemPrompt, apiKey, model);
+      // Audio → Transcription Whisper puis DeepSeek
+      console.log('[Bot] 🎤 Transcription audio...');
+      const transcription = await transcribeAudio(attachmentUrl);
+      if (transcription) {
+        mediaDescription = `\n[L'utilisateur a envoyé un message vocal. Transcription : "${transcription}"]`;
+        console.log('[Bot] ✅ Audio transcrit par Whisper');
+      } else {
+        mediaDescription = "\n[L'utilisateur a envoyé un message vocal mais je n'ai pas pu le transcrire. Demande-lui d'écrire.]";
+      }
+      reply = await callLLM(history, systemPrompt + mediaDescription, apiKey, model);
+
     } else {
-      // Texte → DeepSeek
+      // Texte → DeepSeek directement
       reply = await callLLM(history, systemPrompt, apiKey, model);
     }
 
