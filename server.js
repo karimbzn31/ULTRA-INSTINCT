@@ -109,9 +109,9 @@ async function checkAdmin(email, password) {
     }
   } catch {}
 
-  // 2. Fallback : variables d'environnement (Vercel)
+  // 2. Fallback : variables d'environnement (Vercel - mot de passe en texte brut)
   if (isVercel || process.env.ADMIN_EMAIL) {
-    return email === ADMIN_EMAIL && await bcrypt.compare(password, ADMIN_PASSWORD);
+    return email === ADMIN_EMAIL && password === ADMIN_PASSWORD;
   }
 
   // 3. Fallback : fichier local
