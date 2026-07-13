@@ -58,6 +58,21 @@ CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_messages_client ON messages(client_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at DESC);
 
+-- ─── Table : admin_settings ───────────────────────────────
+CREATE TABLE IF NOT EXISTS admin_settings (
+  id INTEGER PRIMARY KEY DEFAULT 1,
+  email TEXT NOT NULL DEFAULT 'admin@ultra-instinct.ai',
+  password TEXT NOT NULL DEFAULT '',
+  name TEXT DEFAULT 'Admin',
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT single_row CHECK (id = 1)
+);
+
+-- Insérer la ligne admin par défaut si elle n'existe pas
+INSERT INTO admin_settings (id, email, password, name)
+VALUES (1, 'admin@ultra-instinct.ai', '', 'Admin')
+ON CONFLICT (id) DO NOTHING;
+
 -- ─── Row Level Security ───────────────────────────────────
 ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;

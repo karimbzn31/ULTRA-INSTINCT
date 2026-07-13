@@ -16,7 +16,7 @@ import 'dotenv/config';
 // ─── Supabase ──────────────────────────────────────────────
 import {
   getClients, getClient, createClient, updateClient,
-  toggleClient, deleteClient, getStats
+  toggleClient, deleteClient, getStats, getAdminSettings, updateAdminSettings
 } from './lib/supabase.js';
 
 // ─── Config ────────────────────────────────────────────────
@@ -101,12 +101,20 @@ await initAdmin();
 
 // ─── Fonction admin check ────────────────────────────────
 async function checkAdmin(email, password) {
+  // 1. D'abord vérifier dans Supabase (admin_settings)
+  try {
+    const settings = await getAdminSettings();
+    if (settings && settings.email === email && settings.password) {
+      return await bcrypt.compare(password, settings.password);
+    }
+  } catch {}
+
+  // 2. Fallback : variables d'environnement (Vercel)
   if (isVercel || process.env.ADMIN_EMAIL) {
-    // Mode environnement
     return email === ADMIN_EMAIL && await bcrypt.compare(password, ADMIN_PASSWORD);
   }
 
-  // Mode local fichier
+  // 3. Fallback : fichier local
   try {
     const adminPath = path.join(__dirname, 'data', 'admin.json');
     if (!existsSync(adminPath)) return false;
@@ -118,6 +126,7 @@ async function checkAdmin(email, password) {
 }
 
 function getAdminInfo() {
+  // On retourne l'email de la config
   if (isVercel || process.env.ADMIN_EMAIL) {
     return { email: ADMIN_EMAIL, name: ADMIN_NAME, role: 'superadmin' };
   }
@@ -183,6 +192,24 @@ app.get('/api/admin/stats', authMiddleware, async (req, res) => {
     res.json(await getStats());
   } catch (err) {
     res.status(500).json({ error: 'Erreur chargement stats.' });
+  }
+});
+
+// ─── Route Admin Settings ────────────────────────────────
+app.put('/api/admin/settings', authMiddleware, async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email et mot de passe requis.' });
+    }
+
+    const hash = await bcrypt.hash(password, 10);
+    await updateAdminSettings({ email, password: hash });
+
+    // Mettre à jour aussi les vars d'env Vercel ? Non, on utilise Supabase
+    res.json({ success: true, message: 'Identifiants mis à jour.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur mise à jour.' });
   }
 });
 
@@ -305,6 +332,7 @@ app.get('/admin*', (req, res) => {
   else if (pathname === '/clients') page = 'clients.html';
   else if (pathname === '/client') page = 'client-detail.html';
   else if (pathname === '/new-client') page = 'new-client.html';
+  else if (pathname === '/settings') page = 'settings.html';
 
   res.sendFile(path.join(__dirname, 'admin', page));
 });
