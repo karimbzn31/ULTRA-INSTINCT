@@ -6,7 +6,8 @@
 // ============================================================
 
 import axios from 'axios';
-import { getClient, getSession, saveSession, addToHistory, getHistory } from './session.js';
+import { supabase, getClient } from '../lib/supabase.js';
+import { getSession, saveSession, addToHistory, getHistory } from './session.js';
 
 // ─── Configuration par défaut ─────────────────────────────
 const OPENCODE_BASE = (process.env.OPENCODE_BASE_URL || 'https://opencode.ai/zen/v1').replace(/\/+$/, '');
@@ -186,7 +187,6 @@ async function callLLM(history, systemPrompt, apiKey, model) {
 // ─── Enregistrer un message ──────────────────────────────
 async function logMessage(clientId, platform, userId, sender, content) {
   try {
-    const { supabase } = await import('../lib/supabase.js');
     await supabase.from('messages').insert([{
       client_id: clientId,
       platform,
@@ -194,19 +194,18 @@ async function logMessage(clientId, platform, userId, sender, content) {
       content: typeof content === 'string' ? content.substring(0, 500) : '',
       message_type: 'text',
     }]);
-  } catch {}
+  } catch (e) { console.warn('[Bot] Log error:', e.message); }
 }
 
 // ─── Mettre à jour les stats du client ───────────────────
 async function updateStats(clientId) {
   try {
-    const { supabase, getClient } = await import('../lib/supabase.js');
-    const client = await getClient(clientId);
+    const { data: client } = await supabase.from('clients').select('stats').eq('id', clientId).single();
     if (client) {
       const stats = client.stats || {};
       stats.messages_processed = (stats.messages_processed || 0) + 1;
       stats.last_activity = new Date().toISOString();
       await supabase.from('clients').update({ stats }).eq('id', clientId);
     }
-  } catch {}
+  } catch (e) { console.warn('[Bot] Stats error:', e.message); }
 }
