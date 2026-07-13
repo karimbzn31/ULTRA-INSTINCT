@@ -7,6 +7,14 @@
   display: flex;
   min-height: 100vh;
   background: #0f0a1a;
+  color: #f0eef6;
+}
+
+/* ─── Lisibilité renforcée ───────────────────────────────── */
+/* Contre les textes trop transparents sur fond sombre */
+.text-purple-300\/50, .text-purple-300\/40, .text-purple-300\/30,
+.text-purple-300\/60, .text-purple-300\/70 {
+  color: rgba(216, 196, 255, 0.85) !important;
 }
 
 /* ─── Sidebar ────────────────────────────────────────────── */
@@ -56,7 +64,7 @@
   gap: 0.75rem;
   padding: 0.75rem 1rem;
   border-radius: 0.75rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.85);
   text-decoration: none;
   font-size: 0.9rem;
   transition: all 0.2s;
@@ -68,8 +76,8 @@
 }
 
 .nav-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
 }
 
 .nav-item.active {
@@ -140,7 +148,7 @@
 
 .stat-label {
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 /* ─── Cards ──────────────────────────────────────────────── */
@@ -166,7 +174,7 @@
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 2rem;
-  color: rgba(255, 255, 255, 0.8);
+  color: white;
   font-size: 0.85rem;
 }
 
@@ -192,7 +200,7 @@
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 2rem;
-  color: rgba(255, 255, 255, 0.8);
+  color: white;
   cursor: pointer;
   transition: all 0.2s;
   font-size: 0.9rem;
@@ -233,9 +241,9 @@
 /* ─── Forms ──────────────────────────────────────────────── */
 .form-label {
   display: block;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
   margin-bottom: 0.35rem;
 }
 
@@ -258,7 +266,7 @@
 }
 
 .form-input::placeholder {
-  color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.35);
 }
 
 select.form-input option {
@@ -305,7 +313,7 @@ textarea.form-input {
   gap: 0.5rem;
   padding: 0.75rem 1.5rem;
   background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.8);
+  color: white;
   font-weight: 500;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 0.75rem;
