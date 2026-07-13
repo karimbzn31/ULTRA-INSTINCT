@@ -124,10 +124,10 @@
                 <input type="radio" name="capabilities" value="text" />📝 Texte
               </label>
               <label class="option-card">
-                <input type="radio" name="capabilities" value="text_image" />📝🖼️ Texte + Images
+                <input type="radio" name="capabilities" value="text_image" />📝🖼️ Texte + Images <span class="text-[10px] text-purple-400">(clé Gemini requise)</span>
               </label>
               <label class="option-card">
-                <input type="radio" name="capabilities" value="text_image_audio" checked />📝🖼️🎤 Complet
+                <input type="radio" name="capabilities" value="text_image_audio" checked />📝🖼️🎤 Complet <span class="text-[10px] text-purple-400">(clés Gemini + Whisper requises)</span>
               </label>
             </div>
 
@@ -159,11 +159,11 @@
                 <div><label class="form-label">Verify Token</label><input type="text" id="verifyToken" class="form-input font-mono text-xs" placeholder="mon_token" /></div>
               </div>
               <div>
-                <label class="form-label">🖼️ Clé Gemini (images) — optionnelle</label>
+                <label class="form-label">🖼️ Clé Gemini (images) — obligatoire si capacité Images</label>
                 <input type="text" id="geminiKey" class="form-input font-mono text-xs" placeholder="AIzaSy..." />
               </div>
               <div>
-                <label class="form-label">🎤 Clé Whisper (audio) — optionnelle</label>
+                <label class="form-label">🎤 Clé Whisper (audio) — obligatoire si capacité Audio</label>
                 <input type="text" id="whisperKey" class="form-input font-mono text-xs" placeholder="sk-..." />
               </div>
             </div>
@@ -326,8 +326,11 @@
       document.getElementById('sumPrice').textContent = price ? `${price} ${currency}${deliveryFree ? ' (livraison offerte)' : ''}` : 'Non défini';
 
       document.getElementById('sumApi').textContent = document.getElementById('apiKey').value ? '✅ Personnelle' : '🌐 Globale';
-      document.getElementById('sumGemini').textContent = document.getElementById('geminiKey').value ? '✅ Personnelle' : '🌐 Globale';
-      document.getElementById('sumWhisper').textContent = document.getElementById('whisperKey').value ? '✅ Personnelle' : '🌐 Globale';
+      const caps = document.querySelector('input[name="capabilities"]:checked')?.value || 'text';
+      const hasGemini = document.getElementById('geminiKey').value;
+      const hasWhisper = document.getElementById('whisperKey').value;
+      document.getElementById('sumGemini').textContent = hasGemini ? '✅ Personnelle' : (caps === 'text' ? '— Non requis' : '⚠️ Manquante !');
+      document.getElementById('sumWhisper').textContent = hasWhisper ? '✅ Personnelle' : (caps === 'text_image_audio' ? '⚠️ Manquante !' : '— Non requis');
     }
 
     // ─── LIVRAISON ═══
