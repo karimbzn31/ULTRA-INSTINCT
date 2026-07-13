@@ -172,6 +172,37 @@ app.get('/api/debug', (req, res) => {
   });
 });
 
+// ─── Diagnostic PUBLIC (sans auth) ────────────────────────
+app.get('/api/debug', (req, res) => {
+  res.json({
+    vercel: !!process.env.VERCEL,
+    adminEmail: process.env.ADMIN_EMAIL || '❌ non défini',
+    adminPassword: process.env.ADMIN_PASSWORD ? '✅ défini (' + process.env.ADMIN_PASSWORD + ')' : '❌ non défini',
+    node: process.version,
+    env: process.env.NODE_ENV || 'none',
+  });
+});
+
+// ─── Route TEST login direct (sans abstraction) ───────────
+app.post('/api/test-login', async (req, res) => {
+  const { email, password } = req.body;
+
+  // Hardcodé
+  const hardMatch = email === 'admin@ultra-instinct.ai' && password === 'admin123';
+
+  // Env vars
+  const envMatch = process.env.ADMIN_EMAIL && email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD;
+
+  res.json({
+    hardMatch,
+    envMatch,
+    hardcoded_email: 'admin@ultra-instinct.ai',
+    hardcoded_password: 'admin123',
+    env_email: process.env.ADMIN_EMAIL || 'none',
+    env_password: process.env.ADMIN_PASSWORD || 'none',
+  });
+});
+
 // ─── Routes Auth ──────────────────────────────────────────
 app.post('/api/admin/login', async (req, res) => {
   try {
