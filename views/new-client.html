@@ -7,37 +7,21 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/assets/style.css" />
   <style>
-    /* ─── Wizard Steps ───────────────────────────────── */
     .wizard-steps { display: flex; align-items: center; gap: 0; margin-bottom: 2rem; }
     .w-step { display: flex; align-items: center; gap: 0.5rem; flex: 1; position: relative; }
-    .w-step:not(:last-child)::after {
-      content: ''; flex: 1; height: 2px; background: rgba(255,255,255,0.1); margin: 0 0.75rem;
-    }
+    .w-step:not(:last-child)::after { content: ''; flex: 1; height: 2px; background: rgba(255,255,255,0.1); margin: 0 0.75rem; }
     .w-step.completed:not(:last-child)::after { background: #a855f7; }
     .w-step.active:not(:last-child)::after { background: linear-gradient(90deg, #a855f7 50%, rgba(255,255,255,0.1) 50%); }
-    .w-step-num {
-      width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-      font-size: 0.8rem; font-weight: 600; flex-shrink: 0;
-      background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.3); border: 2px solid rgba(255,255,255,0.06);
-      transition: all 0.3s;
-    }
+    .w-step-num { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 600; flex-shrink: 0; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.3); border: 2px solid rgba(255,255,255,0.06); transition: all 0.3s; }
     .w-step.active .w-step-num { background: #a855f7; color: white; border-color: #a855f7; box-shadow: 0 0 20px rgba(168,85,247,0.3); }
     .w-step.completed .w-step-num { background: #22c55e; color: white; border-color: #22c55e; }
     .w-step-label { font-size: 0.78rem; color: rgba(255,255,255,0.65); white-space: nowrap; font-weight: 500; }
     .w-step.active .w-step-label { color: #c084fc; font-weight: 600; }
     .w-step.completed .w-step-label { color: rgba(255,255,255,0.85); }
-
-    /* ─── Panels ─────────────────────────────────────── */
     .w-panel { display: none; }
     .w-panel.active { display: block; animation: fadeIn 0.3s ease; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-
-    /* ─── Cards ──────────────────────────────────────── */
-    .option-card {
-      display: flex; align-items: center; gap: 0.75rem; padding: 1rem 1.25rem;
-      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 1rem;
-      cursor: pointer; transition: all 0.2s; color: white;
-    }
+    .option-card { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 1rem; cursor: pointer; transition: all 0.2s; color: white; }
     .option-card:hover { background: rgba(255,255,255,0.08); }
     .option-card.selected { border-color: #a855f7; background: rgba(168,85,247,0.15); }
     .option-card input { accent-color: #a855f7; width: 1.1rem; height: 1.1rem; }
@@ -64,29 +48,26 @@
         <div class="ml-auto"><span class="text-purple-300/70 text-sm" id="adminName"></span></div>
       </header>
 
-      <!-- ═══ PROGRESS BAR ═══ -->
       <div class="wizard-steps">
         <div class="w-step active" data-step="0"><div class="w-step-num">1</div><span class="w-step-label">Identité</span></div>
         <div class="w-step" data-step="1"><div class="w-step-num">2</div><span class="w-step-label">Connexion</span></div>
-        <div class="w-step" data-step="2"><div class="w-step-num">3</div><span class="w-step-label">Tarifs</span></div>
-        <div class="w-step" data-step="3"><div class="w-step-num">4</div><span class="w-step-label">Assistant</span></div>
-        <div class="w-step" data-step="4"><div class="w-step-num">5</div><span class="w-step-label">Validation</span></div>
+        <div class="w-step" data-step="2"><div class="w-step-num">3</div><span class="w-step-label">Validation</span></div>
       </div>
 
       <form id="clientForm">
 
-        <!-- ═══ ÉTAPE 1 : IDENTITÉ ═══ -->
+        <!-- ÉTAPE 1 : IDENTITÉ -->
         <div class="w-panel active" data-panel="0">
           <div class="section-card">
-            <h2 class="text-lg font-semibold text-white mb-1">👤 Qui est ce client ?</h2>
-            <p class="text-purple-300/50 text-sm mb-6">Informations de base pour créer son profil.</p>
+            <h2 class="text-lg font-semibold text-white mb-1">👤 Identité du client</h2>
+            <p class="text-purple-300/70 text-sm mb-6">Informations obligatoires pour créer son profil.</p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div><label class="form-label">Nom complet *</label><input type="text" id="name" required class="form-input" placeholder="Ex: Mohamed Ali" /></div>
+              <div><label class="form-label">Nom *</label><input type="text" id="name" required class="form-input" placeholder="Ex: Mohamed Ali" /></div>
               <div><label class="form-label">Email *</label><input type="email" id="email" required class="form-input" placeholder="client@email.com" /></div>
               <div><label class="form-label">Téléphone</label><input type="text" id="phone" class="form-input" placeholder="+213 6XX XX XX XX" /></div>
               <div><label class="form-label">Société / Boutique</label><input type="text" id="company" class="form-input" placeholder="Ex: Cosmetix Algérie" /></div>
               <div>
-                <label class="form-label">Secteur d'activité</label>
+                <label class="form-label">Type d'activité</label>
                 <select id="businessType" class="form-input">
                   <option value="boutique">🛍️ E-commerce / Boutique</option>
                   <option value="immobilier">🏠 Immobilier</option>
@@ -104,68 +85,41 @@
           </div>
         </div>
 
-        <!-- ═══ ÉTAPE 2 : CONNEXION ═══ -->
+        <!-- ÉTAPE 2 : CONNEXION -->
         <div class="w-panel" data-panel="1">
           <div class="section-card">
-            <h2 class="text-lg font-semibold text-white mb-1">📱 Plateformes & Clés API</h2>
-            <p class="text-purple-300/50 text-sm mb-6">Sur quels canaux le bot va répondre ?</p>
+            <h2 class="text-lg font-semibold text-white mb-1">📱 Plateformes & Connexion</h2>
+            <p class="text-purple-300/70 text-sm mb-4">Configure les accès du bot.</p>
 
-            <h3 class="text-sm font-medium text-white mb-3">Activer le bot sur :</h3>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <h3 class="text-sm font-medium text-white mb-2">Activer sur :</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
               <label class="option-card"><input type="checkbox" id="platMessenger" checked /> 💬 Messenger</label>
               <label class="option-card"><input type="checkbox" id="platInstagram" /> 📸 Instagram</label>
               <label class="option-card"><input type="checkbox" id="platWhatsapp" /> 💚 WhatsApp</label>
               <label class="option-card"><input type="checkbox" id="platTelegram" /> ✈️ Telegram</label>
             </div>
 
-            <h3 class="text-sm font-medium text-white mb-3">Capacités du bot :</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-              <label class="option-card">
-                <input type="radio" name="capabilities" value="text" />📝 Texte
-              </label>
-              <label class="option-card">
-                <input type="radio" name="capabilities" value="text_image" />📝🖼️ Texte + Images <span class="text-[10px] text-purple-400">(clé Gemini requise)</span>
-              </label>
-              <label class="option-card">
-                <input type="radio" name="capabilities" value="text_image_audio" checked />📝🖼️🎤 Complet <span class="text-[10px] text-purple-400">(clés Gemini + Whisper requises)</span>
-              </label>
+            <h3 class="text-sm font-medium text-white mb-2">Capacités :</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
+              <label class="option-card"><input type="radio" name="caps" value="text" checked /> 📝 Texte</label>
+              <label class="option-card"><input type="radio" name="caps" value="text_image" /> 📝🖼️ Texte + Images</label>
+              <label class="option-card"><input type="radio" name="caps" value="text_image_audio" /> 📝🖼️🎤 Complet</label>
             </div>
 
-            <hr class="border-white/5 my-6" />
+            <hr class="border-white/5 my-4" />
 
-            <h3 class="text-sm font-medium text-white mb-3">🔐 Clé API & Token Meta</h3>
-            <p class="text-purple-300/40 text-xs mb-4">Optionnel : laisse vide pour utiliser les clés globales du serveur.</p>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label class="form-label">Clé API OpenCode Zen</label>
-                <input type="text" id="apiKey" class="form-input font-mono text-xs" placeholder="opencode_api_key_..." />
-              </div>
-              <div>
-                <label class="form-label">Modèle LLM</label>
-                <select id="apiModel" class="form-input">
-                  <option value="deepseek-v4-flash-free">⚡ DeepSeek V4 Flash Free</option>
-                  <option value="nemotron-3-ultra-free">🧠 Nemotron 3 Ultra Free</option>
-                  <option value="big-pickle">🎨 Big Pickle</option>
-                  <option value="mimo-v2.5-free">🔮 MiMo V2.5 Free</option>
-                  <option value="north-mini-code-free">💻 North Mini Code Free</option>
-                </select>
-              </div>
-              <div>
-                <label class="form-label">Page Access Token (Meta)</label>
-                <input type="text" id="metaToken" class="form-input font-mono text-xs" placeholder="EAAG..." />
-              </div>
-              <div class="grid grid-cols-2 gap-3">
+            <h3 class="text-sm font-medium text-white mb-2">🔑 Clés</h3>
+            <p class="text-purple-300/50 text-xs mb-3">Optionnel : laisse vide pour utiliser les clés globales.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div><label class="form-label">OpenCode Zen</label><input type="text" id="apiKey" class="form-input font-mono text-xs" placeholder="opencode_key..." /></div>
+              <div><label class="form-label">Modèle</label><select id="apiModel" class="form-input"><option value="deepseek-v4-flash-free">⚡ DeepSeek V4 Flash Free</option><option value="nemotron-3-ultra-free">🧠 Nemotron 3 Ultra Free</option><option value="big-pickle">🎨 Big Pickle</option><option value="mimo-v2.5-free">🔮 MiMo V2.5 Free</option><option value="north-mini-code-free">💻 North Mini Code Free</option></select></div>
+              <div><label class="form-label">Gemini (images)</label><input type="text" id="geminiKey" class="form-input font-mono text-xs" placeholder="AIzaSy..." /></div>
+              <div><label class="form-label">Whisper (audio)</label><input type="text" id="whisperKey" class="form-input font-mono text-xs" placeholder="sk-..." /></div>
+              <div><label class="form-label">Page Access Token (Meta)</label><input type="text" id="metaToken" class="form-input font-mono text-xs" placeholder="EAAG..." /></div>
+              <div class="grid grid-cols-2 gap-2">
                 <div><label class="form-label">Page ID</label><input type="text" id="pageId" class="form-input font-mono text-xs" placeholder="123456789" /></div>
                 <div><label class="form-label">Verify Token</label><input type="text" id="verifyToken" class="form-input font-mono text-xs" placeholder="mon_token" /></div>
               </div>
-              <div>
-                <label class="form-label">🖼️ Clé Gemini (images) — obligatoire si capacité Images</label>
-                <input type="text" id="geminiKey" class="form-input font-mono text-xs" placeholder="AIzaSy..." />
-              </div>
-              <div>
-                <label class="form-label">🎤 Clé Whisper (audio) — obligatoire si capacité Audio</label>
-                <input type="text" id="whisperKey" class="form-input font-mono text-xs" placeholder="sk-..." />
-              </div>
             </div>
           </div>
           <div class="flex justify-between mt-6">
@@ -174,85 +128,17 @@
           </div>
         </div>
 
-        <!-- ═══ ÉTAPE 3 : TARIFS ═══ -->
+        <!-- ÉTAPE 3 : VALIDATION -->
         <div class="w-panel" data-panel="2">
           <div class="section-card">
-            <h2 class="text-lg font-semibold text-white mb-1">💰 Tarifs & Livraison</h2>
-            <p class="text-purple-300/50 text-sm mb-6">Ces infos seront ajoutées automatiquement dans le prompt du bot.</p>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div><label class="form-label">Prix de base</label><input type="number" id="price" class="form-input" placeholder="0" min="0" /></div>
-              <div>
-                <label class="form-label">Devise</label>
-                <select id="currency" class="form-input">
-                  <option value="DZD">🇩🇿 DZD (Algérie)</option>
-                  <option value="EUR">🇪🇺 EUR (Europe)</option>
-                  <option value="USD">🇺🇸 USD (États-Unis)</option>
-                  <option value="MAD">🇲🇦 MAD (Maroc)</option>
-                </select>
-              </div>
-              <div>
-                <label class="form-label">Livraison</label>
-                <select id="deliveryFree" class="form-input">
-                  <option value="true">✅ Offerte</option>
-                  <option value="false">💰 Payante</option>
-                </select>
-              </div>
-              <div id="deliveryFeeGroup"><label class="form-label">Frais de livraison</label><input type="number" id="deliveryFee" class="form-input" placeholder="0" min="0" /></div>
-              <div class="md:col-span-2"><label class="form-label">Note sur les prix / conditions</label><input type="text" id="conditions" class="form-input" placeholder="Ex: Livraison gratuite à partir de 5000 DZD, paiement à la livraison..." /></div>
-            </div>
-          </div>
-          <div class="section-card mt-6">
-            <div class="flex items-center justify-between">
-              <div>
-                <h3 class="text-sm font-medium text-white">📦 Catalogue</h3>
-                <p class="text-purple-300/40 text-xs mt-1">Tu pourras ajouter le catalogue après la création.</p>
-              </div>
-              <span class="text-purple-300/50 text-xs">⏳ Plus tard</span>
-            </div>
-          </div>
-          <div class="flex justify-between mt-6">
-            <button type="button" onclick="prevStep()" class="btn-secondary">← Retour</button>
-            <button type="button" onclick="nextStep()" class="btn-primary">Continuer →</button>
-          </div>
-        </div>
-
-        <!-- ═══ ÉTAPE 4 : ASSISTANT ═══ -->
-        <div class="w-panel" data-panel="3">
-          <div class="section-card">
-            <div class="flex justify-between items-start mb-1">
-              <div>
-                <h2 class="text-lg font-semibold text-white">🧠 Personnalité de l'assistant</h2>
-                <p class="text-purple-300/50 text-sm mb-6">Le prompt est généré automatiquement. Tu peux le modifier si besoin.</p>
-              </div>
-              <button type="button" onclick="resetPrompt()" class="text-xs text-purple-400 hover:text-purple-300 transition">↩️ Réinitialiser</button>
-            </div>
-            <textarea id="prompt" rows="10" class="form-input font-mono text-sm w-full"></textarea>
-          </div>
-          <div class="section-card mt-6">
-            <h3 class="text-sm font-medium text-white mb-3">📝 Note interne</h3>
-            <textarea id="notes" rows="2" class="form-input w-full" placeholder="Optionnel : une note pour toi (le client ne la voit pas)"></textarea>
-          </div>
-          <div class="flex justify-between mt-6">
-            <button type="button" onclick="prevStep()" class="btn-secondary">← Retour</button>
-            <button type="button" onclick="nextStep()" class="btn-primary">Continuer →</button>
-          </div>
-        </div>
-
-        <!-- ═══ ÉTAPE 5 : VALIDATION ═══ -->
-        <div class="w-panel" data-panel="4">
-          <div class="section-card">
-            <h2 class="text-lg font-semibold text-white mb-1">✅ Récapitulatif</h2>
-            <p class="text-purple-300/50 text-sm mb-6">Vérifie les infos avant de créer le client.</p>
-            <div id="summary" class="space-y-3 text-sm">
+            <h2 class="text-lg font-semibold text-white mb-1">✅ Création</h2>
+            <p class="text-purple-300/70 text-sm mb-6">Vérifie les infos et crée le client. Tu pourras ajouter produits, tarifs et personnaliser le prompt après.</p>
+            <div id="summary" class="space-y-2 text-sm">
               <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">Nom</span><span class="text-white font-medium" id="sumName">—</span></div>
               <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">Email</span><span class="text-white" id="sumEmail">—</span></div>
               <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">Société</span><span class="text-white" id="sumCompany">—</span></div>
               <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">Plateformes</span><span class="text-white" id="sumPlatforms">—</span></div>
-              <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">Capacités</span><span class="text-white" id="sumCapabilities">—</span></div>
-              <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">Prix</span><span class="text-white" id="sumPrice">—</span></div>
-              <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">API OpenCode</span><span class="text-white" id="sumApi">—</span></div>
-              <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">Gemini (images)</span><span class="text-white" id="sumGemini">—</span></div>
-              <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">Whisper (audio)</span><span class="text-white" id="sumWhisper">—</span></div>
+              <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">Capacités</span><span class="text-white" id="sumCaps">—</span></div>
             </div>
           </div>
           <div class="flex justify-between mt-6">
@@ -268,9 +154,8 @@
   <script src="/assets/app.js"></script>
   <script>
     let currentStep = 0;
-    const totalSteps = 5;
+    const totalSteps = 3;
 
-    // ─── Navigation ───────────────────────────────────
     function updateSteps() {
       document.querySelectorAll('.w-step').forEach((el, i) => {
         el.classList.toggle('active', i === currentStep);
@@ -279,150 +164,61 @@
       document.querySelectorAll('.w-panel').forEach((el, i) => {
         el.classList.toggle('active', i === currentStep);
       });
-      // Scroll en haut
       window.scrollTo(0, 0);
     }
 
     function nextStep() {
-      // Valider l'étape actuelle avant de passer à la suivante
-      if (currentStep === 0 && !validateStep1()) return;
-      if (currentStep === 1 && !validateStep2()) return;
-      if (currentStep === 2 && !validateStep3()) return;
-      if (currentStep === 3 && !validateStep4()) return;
-
-      if (currentStep < totalSteps - 1) { currentStep++; updateSteps(); if (currentStep === 4) updateSummary(); }
+      if (currentStep === 0) { if (!valStep1()) return; }
+      if (currentStep === 1) { if (!valStep2()) return; }
+      if (currentStep < totalSteps - 1) { currentStep++; updateSteps(); if (currentStep === 2) updateSummary(); }
     }
 
-    function prevStep() {
-      if (currentStep > 0) { currentStep--; updateSteps(); }
-    }
+    function prevStep() { if (currentStep > 0) { currentStep--; updateSteps(); } }
 
-    // ─── Afficher une erreur VISIBLE et bloquer ────────
-    function blockWithError(msg) {
-      alert('⛔ ' + msg);
-      showError('⛔ ' + msg);
-      return false;
-    }
+    function block(msg) { alert('⛔ ' + msg); return false; }
 
-    function validateStep1() {
+    function valStep1() {
       const name = document.getElementById('name').value.trim();
       const email = document.getElementById('email').value.trim();
-      if (!name || !email) return blockWithError('Nom et email sont obligatoires.');
+      if (!name || !email) return block('Nom et email obligatoires.');
       return true;
     }
 
-    function validateStep2() {
-      // Vérifier qu'au moins une plateforme est cochée
-      const hasPlatform = document.getElementById('platMessenger').checked
-        || document.getElementById('platInstagram').checked
-        || document.getElementById('platWhatsapp').checked
-        || document.getElementById('platTelegram').checked;
-      if (!hasPlatform) return blockWithError('Coche au moins une plateforme.');
-
-      // Vérifier les clés API selon les capacités
-      const caps = document.querySelector('input[name="capabilities"]:checked')?.value || 'text';
-      const hasGemini = document.getElementById('geminiKey').value.trim();
-      const hasWhisper = document.getElementById('whisperKey').value.trim();
-
-      if ((caps === 'text_image' || caps === 'text_image_audio') && !hasGemini) {
-        if (!confirm('⚠️ Capacité "Images" mais pas de clé Gemini.\n\nUtiliser la clé globale du serveur ?\n\n"OK" = continuer, "Annuler" = revenir')) {
-          return false;
-        }
-      }
-      if (caps === 'text_image_audio' && !hasWhisper) {
-        if (!confirm('⚠️ Capacité "Audio" mais pas de clé Whisper.\n\nUtiliser la clé globale du serveur ?\n\n"OK" = continuer, "Annuler" = revenir')) {
-          return false;
-        }
-      }
-
+    function valStep2() {
+      const hasPlat = document.getElementById('platMessenger').checked || document.getElementById('platInstagram').checked
+        || document.getElementById('platWhatsapp').checked || document.getElementById('platTelegram').checked;
+      if (!hasPlat) return block('Coche au moins une plateforme.');
+      const cap = document.querySelector('input[name="caps"]:checked')?.value || 'text';
+      const gKey = document.getElementById('geminiKey').value.trim();
+      const wKey = document.getElementById('whisperKey').value.trim();
+      if ((cap === 'text_image' || cap === 'text_image_audio') && !gKey && !confirm('Pas de clé Gemini. Utiliser la clé globale ?')) return false;
+      if (cap === 'text_image_audio' && !wKey && !confirm('Pas de clé Whisper. Utiliser la clé globale ?')) return false;
       return true;
     }
 
-    function validateStep3() {
-      // Tout est optionnel, toujours OK
-      return true;
-    }
-
-    function validateStep4() {
-      const prompt = document.getElementById('prompt').value.trim();
-      if (!prompt || prompt.length < 10) return blockWithError('Le prompt doit faire au moins 10 caractères.');
-      return true;
-    }
-
-    // ─── Résumé ───────────────────────────────────────
     function updateSummary() {
       document.getElementById('sumName').textContent = document.getElementById('name').value || '—';
       document.getElementById('sumEmail').textContent = document.getElementById('email').value || '—';
       document.getElementById('sumCompany').textContent = document.getElementById('company').value || '—';
-
       const plats = [];
       if (document.getElementById('platMessenger').checked) plats.push('💬 Messenger');
       if (document.getElementById('platInstagram').checked) plats.push('📸 Instagram');
       if (document.getElementById('platWhatsapp').checked) plats.push('💚 WhatsApp');
       if (document.getElementById('platTelegram').checked) plats.push('✈️ Telegram');
       document.getElementById('sumPlatforms').textContent = plats.length ? plats.join(' ') : 'Aucune';
-
-      const caps = document.querySelector('input[name="capabilities"]:checked');
-      document.getElementById('sumCapabilities').textContent = caps
-        ? ({ text: '📝 Texte', text_image: '📝🖼️ Texte+Images', text_image_audio: '📝🖼️🎤 Complet' })[caps.value]
-        : '—';
-
-      const price = document.getElementById('price').value;
-      const currency = document.getElementById('currency').value;
-      const deliveryFree = document.getElementById('deliveryFree').value === 'true';
-      document.getElementById('sumPrice').textContent = price ? `${price} ${currency}${deliveryFree ? ' (livraison offerte)' : ''}` : 'Non défini';
-
-      document.getElementById('sumApi').textContent = document.getElementById('apiKey').value ? '✅ Personnelle' : '🌐 Globale';
-      const capsVal = document.querySelector('input[name="capabilities"]:checked')?.value || 'text';
-      const hasGemini = document.getElementById('geminiKey').value;
-      const hasWhisper = document.getElementById('whisperKey').value;
-      document.getElementById('sumGemini').textContent = hasGemini ? '✅ Personnelle' : (capsVal === 'text' ? '— Non requis' : '⚠️ Manquante !');
-      document.getElementById('sumWhisper').textContent = hasWhisper ? '✅ Personnelle' : (capsVal === 'text_image_audio' ? '⚠️ Manquante !' : '— Non requis');
+      const caps = document.querySelector('input[name="caps"]:checked');
+      document.getElementById('sumCaps').textContent = caps ? ({ text: '📝 Texte', text_image: '📝🖼️ Texte+Images', text_image_audio: '📝🖼️🎤 Complet' })[caps.value] : '—';
     }
 
-    // ─── LIVRAISON ═══
-    document.getElementById('deliveryFree').addEventListener('change', () => {
-      document.getElementById('deliveryFeeGroup').style.display =
-        document.getElementById('deliveryFree').value === 'true' ? 'none' : 'block';
-    });
-
-    // ─── OPTION CARDS ═══
-    document.querySelectorAll('.option-card input[type="radio"]').forEach(r => {
-      r.addEventListener('change', function() {
-        this.closest('.option-card').querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
-        if (this.checked) this.closest('.option-card').classList.add('selected');
-      });
-    });
-    document.querySelectorAll('.option-card input[type="checkbox"]').forEach(c => {
+    // Init checkboxes styling
+    document.querySelectorAll('.option-card input[type="checkbox"], .option-card input[type="radio"]').forEach(c => {
       c.addEventListener('change', function() {
+        if (this.type === 'radio') this.closest('.option-card').parentElement.querySelectorAll('.option-card').forEach(x => x.classList.remove('selected'));
         this.closest('.option-card').classList.toggle('selected', this.checked);
       });
     });
-    // Init checked
     document.querySelectorAll('.option-card input:checked').forEach(c => c.closest('.option-card').classList.add('selected'));
 
-    // ─── PROMPT ═══
-    resetPrompt();
-    document.getElementById('name').addEventListener('input', resetPrompt);
-    document.getElementById('company').addEventListener('input', resetPrompt);
-
-    function resetPrompt() {
-      const company = document.getElementById('company').value || document.getElementById('name').value || 'Mon Client';
-      document.getElementById('prompt').value =
-`Tu es un assistant commercial chaleureux et professionnel pour ${company}.
-
-🌍 LANGUES : Détecte automatiquement la langue du client (français, arabe, darija).
-
-💬 SOIS : chaleureux(se), professionnel(le), empathique.
-
-📦 PRODUITS : Présente uniquement les produits disponibles avec leurs prix.
-
-📋 COLLECTE : Demande les infos UNE PAR UNE.
-
-✅ VALIDATION : Une fois tout confirmé, remercie chaleureusement.`;
-    }
-
-    // ─── SOUMISSION ═══
     document.getElementById('clientForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = document.getElementById('saveBtn');
@@ -441,9 +237,8 @@
             whatsapp: document.getElementById('platWhatsapp').checked,
             telegram: document.getElementById('platTelegram').checked,
           },
-          bot_capabilities: document.querySelector('input[name="capabilities"]:checked')?.value || 'text',
-          prompt: document.getElementById('prompt').value,
-          notes: document.getElementById('notes').value,
+          bot_capabilities: document.querySelector('input[name="caps"]:checked')?.value || 'text',
+          notes: document.getElementById('notes')?.value || '',
           api_key: document.getElementById('apiKey').value,
           api_model: document.getElementById('apiModel').value,
           gemini_api_key: document.getElementById('geminiKey').value,
@@ -451,32 +246,13 @@
           meta_token: document.getElementById('metaToken').value,
           meta_page_id: document.getElementById('pageId').value,
           meta_verify_token: document.getElementById('verifyToken').value,
-          pricing: {
-            price: parseFloat(document.getElementById('price').value) || 0,
-            currency: document.getElementById('currency').value,
-            delivery_free: document.getElementById('deliveryFree').value === 'true',
-            delivery_fee: parseFloat(document.getElementById('deliveryFee').value) || 0,
-            conditions: document.getElementById('conditions').value,
-          }
         });
-        showSuccess(`✅ Client "${data.name}" créé avec succès !`);
-        setTimeout(() => window.location.href = `/admin/client?id=${data.id}`, 1000);
+        showSuccess(`✅ Client "${data.name}" créé !`);
+        setTimeout(() => window.location.href = `/admin/client?id=${data.id}`, 1200);
       } catch (err) {
         showError(err.message);
         btn.disabled = false;
         btn.textContent = '⚡ Créer le client';
-      }
-    });
-
-    // ─── Keydowns ═══
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        const activePanel = document.querySelector('.w-panel.active');
-        if (activePanel && parseInt(activePanel.dataset.panel) < totalSteps - 1) {
-          e.preventDefault();
-          const btn = activePanel.parentElement.querySelector('button[onclick="nextStep()"]');
-          if (btn) btn.click();
-        }
       }
     });
   </script>
