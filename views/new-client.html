@@ -6,6 +6,42 @@
   <title>Ultra Instinct — Nouveau client</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/assets/style.css" />
+  <style>
+    /* ─── Wizard Steps ───────────────────────────────── */
+    .wizard-steps { display: flex; align-items: center; gap: 0; margin-bottom: 2rem; }
+    .w-step { display: flex; align-items: center; gap: 0.5rem; flex: 1; position: relative; }
+    .w-step:not(:last-child)::after {
+      content: ''; flex: 1; height: 2px; background: rgba(255,255,255,0.1); margin: 0 0.75rem;
+    }
+    .w-step.completed:not(:last-child)::after { background: #a855f7; }
+    .w-step.active:not(:last-child)::after { background: linear-gradient(90deg, #a855f7 50%, rgba(255,255,255,0.1) 50%); }
+    .w-step-num {
+      width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem; font-weight: 600; flex-shrink: 0;
+      background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.3); border: 2px solid rgba(255,255,255,0.06);
+      transition: all 0.3s;
+    }
+    .w-step.active .w-step-num { background: #a855f7; color: white; border-color: #a855f7; box-shadow: 0 0 20px rgba(168,85,247,0.3); }
+    .w-step.completed .w-step-num { background: #22c55e; color: white; border-color: #22c55e; }
+    .w-step-label { font-size: 0.75rem; color: rgba(255,255,255,0.3); white-space: nowrap; }
+    .w-step.active .w-step-label { color: #a855f7; font-weight: 500; }
+    .w-step.completed .w-step-label { color: rgba(255,255,255,0.5); }
+
+    /* ─── Panels ─────────────────────────────────────── */
+    .w-panel { display: none; }
+    .w-panel.active { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ─── Cards ──────────────────────────────────────── */
+    .option-card {
+      display: flex; align-items: center; gap: 0.75rem; padding: 1rem 1.25rem;
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 1rem;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .option-card:hover { background: rgba(255,255,255,0.06); }
+    .option-card.selected { border-color: #a855f7; background: rgba(168,85,247,0.1); }
+    .option-card input { accent-color: #a855f7; width: 1.1rem; height: 1.1rem; }
+  </style>
 </head>
 <body>
   <div class="app-layout">
@@ -28,152 +64,288 @@
         <div class="ml-auto"><span class="text-purple-300/70 text-sm" id="adminName"></span></div>
       </header>
 
-      <form id="clientForm" class="space-y-6">
+      <!-- ═══ PROGRESS BAR ═══ -->
+      <div class="wizard-steps">
+        <div class="w-step active" data-step="0"><div class="w-step-num">1</div><span class="w-step-label">Identité</span></div>
+        <div class="w-step" data-step="1"><div class="w-step-num">2</div><span class="w-step-label">Connexion</span></div>
+        <div class="w-step" data-step="2"><div class="w-step-num">3</div><span class="w-step-label">Tarifs</span></div>
+        <div class="w-step" data-step="3"><div class="w-step-num">4</div><span class="w-step-label">Assistant</span></div>
+        <div class="w-step" data-step="4"><div class="w-step-num">5</div><span class="w-step-label">Validation</span></div>
+      </div>
 
-        <!-- ═══ INFOS GÉNÉRALES ═══ -->
-        <div class="section-card">
-          <h2 class="text-lg font-semibold text-white mb-4">📋 Informations générales</h2>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div><label class="form-label">Nom *</label><input type="text" id="name" required class="form-input" placeholder="Nom du client" /></div>
-            <div><label class="form-label">Email *</label><input type="email" id="email" required class="form-input" placeholder="client@email.com" /></div>
-            <div><label class="form-label">Téléphone</label><input type="text" id="phone" class="form-input" placeholder="+213 6XX XX XX XX" /></div>
-            <div><label class="form-label">Société</label><input type="text" id="company" class="form-input" placeholder="Sa Boutique SARL" /></div>
-            <div>
-              <label class="form-label">Type d'activité</label>
-              <select id="businessType" class="form-input">
-                <option value="boutique">🛍️ E-commerce / Boutique</option>
-                <option value="immobilier">🏠 Immobilier</option>
-                <option value="saas">💻 SaaS / Tech</option>
-                <option value="service">🛠️ Service client</option>
-                <option value="restaurant">🍽️ Restaurant / Livraison</option>
-                <option value="autre">Autre</option>
-              </select>
-            </div>
-          </div>
-        </div>
+      <form id="clientForm">
 
-        <!-- ═══ PLATEFORMES ═══ -->
-        <div class="section-card">
-          <h2 class="text-lg font-semibold text-white mb-4">📱 Plateformes & Capacités</h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h3 class="text-sm font-medium text-purple-300 mb-3">Activer sur :</h3>
-              <div class="flex flex-wrap gap-3">
-                <label class="platform-checkbox"><input type="checkbox" id="platMessenger" checked /> 💬 Messenger</label>
-                <label class="platform-checkbox"><input type="checkbox" id="platInstagram" /> 📸 Instagram</label>
-                <label class="platform-checkbox"><input type="checkbox" id="platWhatsapp" /> 💚 WhatsApp</label>
-                <label class="platform-checkbox"><input type="checkbox" id="platTelegram" /> ✈️ Telegram</label>
+        <!-- ═══ ÉTAPE 1 : IDENTITÉ ═══ -->
+        <div class="w-panel active" data-panel="0">
+          <div class="section-card">
+            <h2 class="text-lg font-semibold text-white mb-1">👤 Qui est ce client ?</h2>
+            <p class="text-purple-300/50 text-sm mb-6">Informations de base pour créer son profil.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div><label class="form-label">Nom complet *</label><input type="text" id="name" required class="form-input" placeholder="Ex: Mohamed Ali" /></div>
+              <div><label class="form-label">Email *</label><input type="email" id="email" required class="form-input" placeholder="client@email.com" /></div>
+              <div><label class="form-label">Téléphone</label><input type="text" id="phone" class="form-input" placeholder="+213 6XX XX XX XX" /></div>
+              <div><label class="form-label">Société / Boutique</label><input type="text" id="company" class="form-input" placeholder="Ex: Cosmetix Algérie" /></div>
+              <div>
+                <label class="form-label">Secteur d'activité</label>
+                <select id="businessType" class="form-input">
+                  <option value="boutique">🛍️ E-commerce / Boutique</option>
+                  <option value="immobilier">🏠 Immobilier</option>
+                  <option value="saas">💻 SaaS / Tech</option>
+                  <option value="service">🛠️ Service client</option>
+                  <option value="restaurant">🍽️ Restaurant</option>
+                  <option value="autre">Autre</option>
+                </select>
               </div>
             </div>
-            <div>
-              <h3 class="text-sm font-medium text-purple-300 mb-3">Capacités :</h3>
-              <select id="capabilities" class="form-input">
-                <option value="text">📝 Texte uniquement</option>
-                <option value="text_image">📝🖼️ Texte + Images</option>
-                <option value="text_image_audio" selected>📝🖼️🎤 Texte + Images + Audio</option>
-              </select>
-            </div>
+          </div>
+          <div class="flex justify-between mt-6">
+            <a href="/admin/clients" class="btn-secondary">← Annuler</a>
+            <button type="button" onclick="nextStep()" class="btn-primary">Continuer →</button>
           </div>
         </div>
 
-        <!-- ═══ API & TOKENS ═══ -->
-        <div class="section-card">
-          <h2 class="text-lg font-semibold text-white mb-4">🔑 Clés API & Tokens Meta</h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="form-label">🔐 Clé API OpenCode Zen</label>
-              <input type="text" id="apiKey" class="form-input font-mono text-xs" placeholder="opencode_api_key_..." />
-              <p class="text-purple-300/40 text-xs mt-1">Laisse vide = clé globale du serveur</p>
+        <!-- ═══ ÉTAPE 2 : CONNEXION ═══ -->
+        <div class="w-panel" data-panel="1">
+          <div class="section-card">
+            <h2 class="text-lg font-semibold text-white mb-1">📱 Plateformes & Clés API</h2>
+            <p class="text-purple-300/50 text-sm mb-6">Sur quels canaux le bot va répondre ?</p>
+
+            <h3 class="text-sm font-medium text-white mb-3">Activer le bot sur :</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+              <label class="option-card"><input type="checkbox" id="platMessenger" checked /> 💬 Messenger</label>
+              <label class="option-card"><input type="checkbox" id="platInstagram" /> 📸 Instagram</label>
+              <label class="option-card"><input type="checkbox" id="platWhatsapp" /> 💚 WhatsApp</label>
+              <label class="option-card"><input type="checkbox" id="platTelegram" /> ✈️ Telegram</label>
             </div>
-            <div>
-              <label class="form-label">🧠 Modèle</label>
-              <select id="apiModel" class="form-input">
-                <option value="deepseek-v4-flash-free">⚡ DeepSeek V4 Flash Free</option>
-                <option value="nemotron-3-ultra-free">🧠 Nemotron 3 Ultra Free</option>
-                <option value="big-pickle">🎨 Big Pickle</option>
-                <option value="mimo-v2.5-free">🔮 MiMo V2.5 Free</option>
-                <option value="north-mini-code-free">💻 North Mini Code Free</option>
-              </select>
+
+            <h3 class="text-sm font-medium text-white mb-3">Capacités du bot :</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+              <label class="option-card">
+                <input type="radio" name="capabilities" value="text" />📝 Texte
+              </label>
+              <label class="option-card">
+                <input type="radio" name="capabilities" value="text_image" />📝🖼️ Texte + Images
+              </label>
+              <label class="option-card">
+                <input type="radio" name="capabilities" value="text_image_audio" checked />📝🖼️🎤 Complet
+              </label>
             </div>
-            <div>
-              <label class="form-label">🔑 Page Access Token (Meta)</label>
-              <input type="text" id="metaToken" class="form-input font-mono text-xs" placeholder="EAAG..." />
+
+            <hr class="border-white/5 my-6" />
+
+            <h3 class="text-sm font-medium text-white mb-3">🔐 Clé API & Token Meta</h3>
+            <p class="text-purple-300/40 text-xs mb-4">Optionnel : laisse vide pour utiliser les clés globales du serveur.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="form-label">Clé API OpenCode Zen</label>
+                <input type="text" id="apiKey" class="form-input font-mono text-xs" placeholder="opencode_api_key_..." />
+              </div>
+              <div>
+                <label class="form-label">Modèle LLM</label>
+                <select id="apiModel" class="form-input">
+                  <option value="deepseek-v4-flash-free">⚡ DeepSeek V4 Flash Free</option>
+                  <option value="nemotron-3-ultra-free">🧠 Nemotron 3 Ultra Free</option>
+                  <option value="big-pickle">🎨 Big Pickle</option>
+                  <option value="mimo-v2.5-free">🔮 MiMo V2.5 Free</option>
+                  <option value="north-mini-code-free">💻 North Mini Code Free</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Page Access Token (Meta)</label>
+                <input type="text" id="metaToken" class="form-input font-mono text-xs" placeholder="EAAG..." />
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div><label class="form-label">Page ID</label><input type="text" id="pageId" class="form-input font-mono text-xs" placeholder="123456789" /></div>
+                <div><label class="form-label">Verify Token</label><input type="text" id="verifyToken" class="form-input font-mono text-xs" placeholder="mon_token" /></div>
+              </div>
             </div>
-            <div class="grid grid-cols-2 gap-3">
-              <div><label class="form-label">🆔 Page ID</label><input type="text" id="pageId" class="form-input font-mono text-xs" placeholder="123456789" /></div>
-              <div><label class="form-label">🔐 Verify Token</label><input type="text" id="verifyToken" class="form-input font-mono text-xs" placeholder="mon_token" /></div>
-            </div>
+          </div>
+          <div class="flex justify-between mt-6">
+            <button type="button" onclick="prevStep()" class="btn-secondary">← Retour</button>
+            <button type="button" onclick="nextStep()" class="btn-primary">Continuer →</button>
           </div>
         </div>
 
-        <!-- ═══ PRIX ═══ -->
-        <div class="section-card">
-          <h2 class="text-lg font-semibold text-white mb-4">💰 Prix & Livraison</h2>
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div><label class="form-label">Prix (unité)</label><input type="number" id="price" class="form-input" placeholder="0" min="0" /></div>
-            <div>
-              <label class="form-label">Devise</label>
-              <select id="currency" class="form-input">
-                <option value="DZD">🇩🇿 DZD</option>
-                <option value="EUR">🇪🇺 EUR</option>
-                <option value="USD">🇺🇸 USD</option>
-                <option value="MAD">🇲🇦 MAD</option>
-              </select>
+        <!-- ═══ ÉTAPE 3 : TARIFS ═══ -->
+        <div class="w-panel" data-panel="2">
+          <div class="section-card">
+            <h2 class="text-lg font-semibold text-white mb-1">💰 Tarifs & Livraison</h2>
+            <p class="text-purple-300/50 text-sm mb-6">Ces infos seront ajoutées automatiquement dans le prompt du bot.</p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div><label class="form-label">Prix de base</label><input type="number" id="price" class="form-input" placeholder="0" min="0" /></div>
+              <div>
+                <label class="form-label">Devise</label>
+                <select id="currency" class="form-input">
+                  <option value="DZD">🇩🇿 DZD (Algérie)</option>
+                  <option value="EUR">🇪🇺 EUR (Europe)</option>
+                  <option value="USD">🇺🇸 USD (États-Unis)</option>
+                  <option value="MAD">🇲🇦 MAD (Maroc)</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Livraison</label>
+                <select id="deliveryFree" class="form-input">
+                  <option value="true">✅ Offerte</option>
+                  <option value="false">💰 Payante</option>
+                </select>
+              </div>
+              <div id="deliveryFeeGroup"><label class="form-label">Frais de livraison</label><input type="number" id="deliveryFee" class="form-input" placeholder="0" min="0" /></div>
+              <div class="md:col-span-2"><label class="form-label">Note sur les prix / conditions</label><input type="text" id="conditions" class="form-input" placeholder="Ex: Livraison gratuite à partir de 5000 DZD, paiement à la livraison..." /></div>
             </div>
-            <div>
-              <label class="form-label">Livraison</label>
-              <select id="deliveryFree" class="form-input">
-                <option value="true">✅ Gratuite</option>
-                <option value="false">💰 Payante</option>
-              </select>
+          </div>
+          <div class="section-card mt-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-sm font-medium text-white">📦 Catalogue</h3>
+                <p class="text-purple-300/40 text-xs mt-1">Tu pourras ajouter le catalogue après la création.</p>
+              </div>
+              <span class="text-purple-300/50 text-xs">⏳ Plus tard</span>
             </div>
-            <div><label class="form-label">Frais livraison</label><input type="number" id="deliveryFee" class="form-input" placeholder="0" min="0" /></div>
           </div>
-          <div class="mt-4">
-            <label class="form-label">Conditions</label>
-            <input type="text" id="conditions" class="form-input" placeholder="Ex: Livraison gratuite à partir de 5000 DZD..." />
+          <div class="flex justify-between mt-6">
+            <button type="button" onclick="prevStep()" class="btn-secondary">← Retour</button>
+            <button type="button" onclick="nextStep()" class="btn-primary">Continuer →</button>
           </div>
         </div>
 
-        <!-- ═══ PROMPT ═══ -->
-        <div class="section-card">
-          <div class="flex justify-between items-center mb-4">
-            <h2 class="text-lg font-semibold text-white">🧠 Prompt personnalisé</h2>
-            <button type="button" onclick="resetPrompt()" class="text-xs text-purple-400 hover:text-purple-300 transition">↩️ Réinitialiser</button>
+        <!-- ═══ ÉTAPE 4 : ASSISTANT ═══ -->
+        <div class="w-panel" data-panel="3">
+          <div class="section-card">
+            <div class="flex justify-between items-start mb-1">
+              <div>
+                <h2 class="text-lg font-semibold text-white">🧠 Personnalité de l'assistant</h2>
+                <p class="text-purple-300/50 text-sm mb-6">Le prompt est généré automatiquement. Tu peux le modifier si besoin.</p>
+              </div>
+              <button type="button" onclick="resetPrompt()" class="text-xs text-purple-400 hover:text-purple-300 transition">↩️ Réinitialiser</button>
+            </div>
+            <textarea id="prompt" rows="10" class="form-input font-mono text-sm w-full"></textarea>
           </div>
-          <textarea id="prompt" rows="12" class="form-input font-mono text-sm w-full"></textarea>
+          <div class="section-card mt-6">
+            <h3 class="text-sm font-medium text-white mb-3">📝 Note interne</h3>
+            <textarea id="notes" rows="2" class="form-input w-full" placeholder="Optionnel : une note pour toi (le client ne la voit pas)"></textarea>
+          </div>
+          <div class="flex justify-between mt-6">
+            <button type="button" onclick="prevStep()" class="btn-secondary">← Retour</button>
+            <button type="button" onclick="nextStep()" class="btn-primary">Continuer →</button>
+          </div>
         </div>
 
-        <!-- ═══ NOTES ═══ -->
-        <div class="section-card">
-          <h2 class="text-lg font-semibold text-white mb-4">📝 Notes internes</h2>
-          <textarea id="notes" rows="3" class="form-input w-full" placeholder="Infos supplémentaires..."></textarea>
+        <!-- ═══ ÉTAPE 5 : VALIDATION ═══ -->
+        <div class="w-panel" data-panel="4">
+          <div class="section-card">
+            <h2 class="text-lg font-semibold text-white mb-1">✅ Récapitulatif</h2>
+            <p class="text-purple-300/50 text-sm mb-6">Vérifie les infos avant de créer le client.</p>
+            <div id="summary" class="space-y-3 text-sm">
+              <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">Nom</span><span class="text-white font-medium" id="sumName">—</span></div>
+              <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">Email</span><span class="text-white" id="sumEmail">—</span></div>
+              <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">Société</span><span class="text-white" id="sumCompany">—</span></div>
+              <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">Plateformes</span><span class="text-white" id="sumPlatforms">—</span></div>
+              <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">Capacités</span><span class="text-white" id="sumCapabilities">—</span></div>
+              <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">Prix</span><span class="text-white" id="sumPrice">—</span></div>
+              <div class="flex justify-between p-3 bg-white/5 rounded-xl"><span class="text-purple-300/70">API perso</span><span class="text-white" id="sumApi">—</span></div>
+            </div>
+          </div>
+          <div class="flex justify-between mt-6">
+            <button type="button" onclick="prevStep()" class="btn-secondary">← Retour</button>
+            <button type="submit" id="saveBtn" class="btn-primary">⚡ Créer le client</button>
+          </div>
         </div>
 
-        <!-- ═══ ACTIONS ═══ -->
-        <div class="flex gap-3 justify-end">
-          <a href="/admin/clients" class="btn-secondary">Annuler</a>
-          <button type="submit" id="saveBtn" class="btn-primary">💾 Créer le client</button>
-        </div>
       </form>
     </main>
   </div>
 
   <script src="/assets/app.js"></script>
   <script>
+    let currentStep = 0;
+    const totalSteps = 5;
+
+    // ─── Navigation ───────────────────────────────────
+    function updateSteps() {
+      document.querySelectorAll('.w-step').forEach((el, i) => {
+        el.classList.toggle('active', i === currentStep);
+        el.classList.toggle('completed', i < currentStep);
+      });
+      document.querySelectorAll('.w-panel').forEach((el, i) => {
+        el.classList.toggle('active', i === currentStep);
+      });
+      // Scroll en haut
+      window.scrollTo(0, 0);
+    }
+
+    function nextStep() {
+      if (currentStep === 0 && !validateStep1()) return;
+      if (currentStep < totalSteps - 1) { currentStep++; updateSteps(); if (currentStep === 4) updateSummary(); }
+    }
+
+    function prevStep() {
+      if (currentStep > 0) { currentStep--; updateSteps(); }
+    }
+
+    function validateStep1() {
+      const name = document.getElementById('name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      if (!name || !email) {
+        showError('Le nom et l\'email sont requis.');
+        return false;
+      }
+      return true;
+    }
+
+    // ─── Résumé ───────────────────────────────────────
+    function updateSummary() {
+      document.getElementById('sumName').textContent = document.getElementById('name').value || '—';
+      document.getElementById('sumEmail').textContent = document.getElementById('email').value || '—';
+      document.getElementById('sumCompany').textContent = document.getElementById('company').value || '—';
+
+      const plats = [];
+      if (document.getElementById('platMessenger').checked) plats.push('💬 Messenger');
+      if (document.getElementById('platInstagram').checked) plats.push('📸 Instagram');
+      if (document.getElementById('platWhatsapp').checked) plats.push('💚 WhatsApp');
+      if (document.getElementById('platTelegram').checked) plats.push('✈️ Telegram');
+      document.getElementById('sumPlatforms').textContent = plats.length ? plats.join(' ') : 'Aucune';
+
+      const caps = document.querySelector('input[name="capabilities"]:checked');
+      document.getElementById('sumCapabilities').textContent = caps
+        ? ({ text: '📝 Texte', text_image: '📝🖼️ Texte+Images', text_image_audio: '📝🖼️🎤 Complet' })[caps.value]
+        : '—';
+
+      const price = document.getElementById('price').value;
+      const currency = document.getElementById('currency').value;
+      const deliveryFree = document.getElementById('deliveryFree').value === 'true';
+      document.getElementById('sumPrice').textContent = price ? `${price} ${currency}${deliveryFree ? ' (livraison offerte)' : ''}` : 'Non défini';
+
+      document.getElementById('sumApi').textContent = document.getElementById('apiKey').value ? '✅ Clé personnelle' : '🌐 Clé globale';
+    }
+
+    // ─── LIVRAISON ═══
     document.getElementById('deliveryFree').addEventListener('change', () => {
-      const el = document.getElementById('deliveryFee');
-      el.disabled = document.getElementById('deliveryFree').value === 'true';
-      if (el.disabled) el.value = 0;
+      document.getElementById('deliveryFeeGroup').style.display =
+        document.getElementById('deliveryFree').value === 'true' ? 'none' : 'block';
     });
 
+    // ─── OPTION CARDS ═══
+    document.querySelectorAll('.option-card input[type="radio"]').forEach(r => {
+      r.addEventListener('change', function() {
+        this.closest('.option-card').querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+        if (this.checked) this.closest('.option-card').classList.add('selected');
+      });
+    });
+    document.querySelectorAll('.option-card input[type="checkbox"]').forEach(c => {
+      c.addEventListener('change', function() {
+        this.closest('.option-card').classList.toggle('selected', this.checked);
+      });
+    });
+    // Init checked
+    document.querySelectorAll('.option-card input:checked').forEach(c => c.closest('.option-card').classList.add('selected'));
+
+    // ─── PROMPT ═══
     resetPrompt();
     document.getElementById('name').addEventListener('input', resetPrompt);
     document.getElementById('company').addEventListener('input', resetPrompt);
 
     function resetPrompt() {
-      const name = document.getElementById('name').value || 'Mon Client';
-      const company = document.getElementById('company').value || name;
+      const company = document.getElementById('company').value || document.getElementById('name').value || 'Mon Client';
       document.getElementById('prompt').value =
 `Tu es un assistant commercial chaleureux et professionnel pour ${company}.
 
@@ -188,11 +360,12 @@
 ✅ VALIDATION : Une fois tout confirmé, remercie chaleureusement.`;
     }
 
+    // ─── SOUMISSION ═══
     document.getElementById('clientForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = document.getElementById('saveBtn');
       btn.disabled = true;
-      btn.textContent = 'Création...';
+      btn.textContent = '⏳ Création...';
       try {
         const data = await api('/api/clients', 'POST', {
           name: document.getElementById('name').value,
@@ -206,7 +379,7 @@
             whatsapp: document.getElementById('platWhatsapp').checked,
             telegram: document.getElementById('platTelegram').checked,
           },
-          bot_capabilities: document.getElementById('capabilities').value,
+          bot_capabilities: document.querySelector('input[name="capabilities"]:checked')?.value || 'text',
           prompt: document.getElementById('prompt').value,
           notes: document.getElementById('notes').value,
           api_key: document.getElementById('apiKey').value,
@@ -222,12 +395,24 @@
             conditions: document.getElementById('conditions').value,
           }
         });
-        showSuccess(`✅ Client "${data.name}" créé !`);
+        showSuccess(`✅ Client "${data.name}" créé avec succès !`);
         setTimeout(() => window.location.href = `/admin/client?id=${data.id}`, 1000);
       } catch (err) {
         showError(err.message);
         btn.disabled = false;
-        btn.textContent = '💾 Créer le client';
+        btn.textContent = '⚡ Créer le client';
+      }
+    });
+
+    // ─── Keydowns ═══
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const activePanel = document.querySelector('.w-panel.active');
+        if (activePanel && parseInt(activePanel.dataset.panel) < totalSteps - 1) {
+          e.preventDefault();
+          const btn = activePanel.parentElement.querySelector('button[onclick="nextStep()"]');
+          if (btn) btn.click();
+        }
       }
     });
   </script>
