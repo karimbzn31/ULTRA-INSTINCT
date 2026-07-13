@@ -99,6 +99,9 @@ async function processMessengerEvent(pageId, event) {
   const senderId = event.sender?.id;
   if (!senderId) return;
 
+  // Ignorer les messages écho (messages envoyés PAR la page elle-même)
+  if (event.message?.is_echo) return;
+
   // Ignorer les messages non-textuels (typing, read receipts, etc.)
   if (!event.message && !event.postback) return;
 
