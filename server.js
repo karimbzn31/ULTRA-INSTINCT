@@ -101,20 +101,23 @@ await initAdmin();
 
 // ─── Fonction admin check ────────────────────────────────
 async function checkAdmin(email, password) {
-  // 1. D'abord vérifier dans Supabase (admin_settings)
+  // Vérifier les variables d'environnement (Vercel) en PRIORITÉ
+  if (process.env.ADMIN_EMAIL) {
+    console.log(`[Auth] Checking env vars: expected=${process.env.ADMIN_EMAIL}, got=${email}`);
+    return email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD;
+  }
+
+  // Sinon vérifier Supabase
   try {
     const settings = await getAdminSettings();
     if (settings && settings.email === email && settings.password) {
       return await bcrypt.compare(password, settings.password);
     }
-  } catch {}
-
-  // 2. Fallback : variables d'environnement (Vercel - mot de passe en texte brut)
-  if (isVercel || process.env.ADMIN_EMAIL) {
-    return email === ADMIN_EMAIL && password === ADMIN_PASSWORD;
+  } catch (e) {
+    console.warn('[Auth] Supabase check failed:', e.message);
   }
 
-  // 3. Fallback : fichier local
+  // Fallback fichier local
   try {
     const adminPath = path.join(__dirname, 'data', 'admin.json');
     if (!existsSync(adminPath)) return false;
@@ -126,9 +129,8 @@ async function checkAdmin(email, password) {
 }
 
 function getAdminInfo() {
-  // On retourne l'email de la config
-  if (isVercel || process.env.ADMIN_EMAIL) {
-    return { email: ADMIN_EMAIL, name: ADMIN_NAME, role: 'superadmin' };
+  if (process.env.ADMIN_EMAIL) {
+    return { email: process.env.ADMIN_EMAIL, name: process.env.ADMIN_NAME || 'Admin', role: 'superadmin' };
   }
 
   try {
@@ -138,7 +140,7 @@ function getAdminInfo() {
       return { email: a.email, name: a.name, role: a.role };
     }
   } catch {}
-  return { email: ADMIN_EMAIL, name: ADMIN_NAME, role: 'superadmin' };
+  return { email: 'admin@ultra-instinct.ai', name: 'Admin', role: 'superadmin' };
 }
 
 // ─── App ────────────────────────────────────────────────────
@@ -165,6 +167,17 @@ function authMiddleware(req, res, next) {
   }
 }
 
+// ─── Diagnostic ───────────────────────────────────────────
+app.get('/api/debug', (req, res) => {
+  res.json({
+    vercel: !!process.env.VERCEL,
+    adminEmail: process.env.ADMIN_EMAIL ? '✅ définie' : '❌ NON définie',
+    adminPassword: process.env.ADMIN_PASSWORD ? '✅ définie' : '❌ NON définie',
+    supabaseUrl: process.env.SUPABASE_URL ? '✅ définie' : '❌ NON définie',
+    supabaseKey: process.env.SUPABASE_SERVICE_KEY ? '✅ définie' : '❌ NON définie',
+  });
+});
+
 // ─── Routes Auth ──────────────────────────────────────────
 app.post('/api/admin/login', async (req, res) => {
   try {
@@ -172,7 +185,10 @@ app.post('/api/admin/login', async (req, res) => {
     if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis.' });
 
     const valid = await checkAdmin(email, password);
-    if (!valid) return res.status(401).json({ error: 'Email ou mot de passe incorrect.' });
+    if (!valid) {
+      console.log(`[Auth] Échec connexion pour: ${email} (env vars: ${!!process.env.ADMIN_EMAIL})`);
+      return res.status(401).json({ error: 'Email ou mot de passe incorrect.' });
+    }
 
     const admin = getAdminInfo();
     const token = jwt.sign(admin, JWT_SECRET, { expiresIn: '24h' });
