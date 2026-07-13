@@ -1,5 +1,6 @@
 // ============================================================
 // ⚡ ULTRA INSTINCT — SERVEUR ADMIN + API (Supabase)
+// Compatible Vercel (serverless) + localhost
 // ============================================================
 
 import express from 'express';
@@ -15,20 +16,34 @@ import 'dotenv/config';
 // ─── Supabase ──────────────────────────────────────────────
 import {
   getClients, getClient, createClient, updateClient,
-  toggleClient, deleteClient, getStats, supabase
+  toggleClient, deleteClient, getStats
 } from './lib/supabase.js';
 
 // ─── Config ────────────────────────────────────────────────
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3580;
 const JWT_SECRET = process.env.JWT_SECRET || 'ultra-instinct-secret-key-2026';
-const DATA_DIR = path.join(__dirname, 'data');
-const UPLOAD_DIR = path.join(__dirname, 'uploads', 'clients');
-const ADMIN_FILE = path.join(DATA_DIR, 'admin.json');
+const isVercel = !!process.env.VERCEL;
+
+// Sur Vercel, on utilise /tmp pour les uploads
+const UPLOAD_DIR = isVercel
+  ? path.join('/tmp', 'uploads', 'clients')
+  : path.join(__dirname, 'uploads', 'clients');
+
+// ─── Admin via variables d'environnement (Vercel) ───────────
+// En local : utilise data/admin.json (fallback)
+// Sur Vercel : utilise les vars d'env
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@ultra-instinct.ai';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const ADMIN_NAME = process.env.ADMIN_NAME || 'Karim';
 
 // ─── Init dossiers ─────────────────────────────────────────
-if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
-if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true });
+function ensureDir(dir) {
+  if (!existsSync(dir)) {
+    try { mkdirSync(dir, { recursive: true }); } catch {}
+  }
+}
+ensureDir(UPLOAD_DIR);
 
 // ─── Multer ────────────────────────────────────────────────
 const storage = multer.diskStorage({
@@ -45,63 +60,87 @@ const upload = multer({
   fileFilter: (req, file, cb) => {
     const allowed = /\.(jpg|jpeg|png|gif|webp|svg|json|csv)$/i;
     if (allowed.test(path.extname(file.originalname))) return cb(null, true);
-    cb(new Error('Format non supporté. Utilise jpg, png, gif, svg, json ou csv.'));
+    cb(new Error('Format non supporté.'));
   }
 });
 
-// ─── Helpers JSON (admin only) ─────────────────────────────
-function readJSON(filePath) {
-  try {
-    if (!existsSync(filePath)) return null;
-    return JSON.parse(readFileSync(filePath, 'utf-8'));
-  } catch { return null; }
-}
-function writeJSON(filePath, data) {
-  writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
-}
-
-// ─── Prompt par défaut ─────────────────────────────────────
-function getDefaultPrompt(clientName) {
-  return `Tu es un assistant commercial chaleureux et professionnel pour ${clientName}.
-
-Ton rôle est d'accueillir les clients, les aider à choisir les bons produits/services, et collecter les informations nécessaires.
-
-🌍 LANGUES : Détecte automatiquement la langue du client (français, arabe, darija) et réponds dans la même langue.
-
-💬 SOIS : chaleureux(se), professionnel(le), empathique, naturel(le).
-
-📦 CATALOGUE : Présente uniquement les produits/services disponibles avec leurs prix.
-
-📋 COLLECTE : Demande les infos UNE PAR UNE de façon naturelle. Ne les demande JAMAIS d'un coup.
-
-✅ VALIDATION : Une fois tout confirmé, génère un JSON structuré pour le système.`;
-}
-
-// ─── Init admin ────────────────────────────────────────────
+// ─── Admin auth ────────────────────────────────────────────
+// Sur Vercel : admin défini via vars d'env
+// En local : on crée un fichier admin.json si pas de vars d'env
 async function initAdmin() {
-  let admin = readJSON(ADMIN_FILE);
+  const ADMIN_FILE = path.join(__dirname, 'data', 'admin.json');
+
+  // Si on est sur Vercel, les vars d'env suffisent
+  if (isVercel || process.env.ADMIN_EMAIL) {
+    console.log(`✅ Admin configuré : ${ADMIN_EMAIL}`);
+    return;
+  }
+
+  // Local : fichier JSON
+  let admin = null;
+  try {
+    if (existsSync(ADMIN_FILE)) {
+      admin = JSON.parse(readFileSync(ADMIN_FILE, 'utf-8'));
+    }
+  } catch {}
+
   if (!admin) {
     const hash = await bcrypt.hash('admin123', 10);
-    admin = {
+    ensureDir(path.join(__dirname, 'data'));
+    writeFileSync(ADMIN_FILE, JSON.stringify({
       email: 'admin@ultra-instinct.ai',
       password: hash,
       name: 'Karim',
       role: 'superadmin',
       createdAt: new Date().toISOString()
-    };
-    writeJSON(ADMIN_FILE, admin);
-    console.log('✅ Admin : admin@ultra-instinct.ai / admin123');
+    }, null, 2), 'utf-8');
+    console.log('✅ Admin local : admin@ultra-instinct.ai / admin123');
   }
 }
 await initAdmin();
+
+// ─── Fonction admin check ────────────────────────────────
+async function checkAdmin(email, password) {
+  if (isVercel || process.env.ADMIN_EMAIL) {
+    // Mode environnement
+    return email === ADMIN_EMAIL && await bcrypt.compare(password, ADMIN_PASSWORD);
+  }
+
+  // Mode local fichier
+  try {
+    const adminPath = path.join(__dirname, 'data', 'admin.json');
+    if (!existsSync(adminPath)) return false;
+    const admin = JSON.parse(readFileSync(adminPath, 'utf-8'));
+    return email === admin.email && await bcrypt.compare(password, admin.password);
+  } catch {
+    return false;
+  }
+}
+
+function getAdminInfo() {
+  if (isVercel || process.env.ADMIN_EMAIL) {
+    return { email: ADMIN_EMAIL, name: ADMIN_NAME, role: 'superadmin' };
+  }
+
+  try {
+    const adminPath = path.join(__dirname, 'data', 'admin.json');
+    if (existsSync(adminPath)) {
+      const a = JSON.parse(readFileSync(adminPath, 'utf-8'));
+      return { email: a.email, name: a.name, role: a.role };
+    }
+  } catch {}
+  return { email: ADMIN_EMAIL, name: ADMIN_NAME, role: 'superadmin' };
+}
 
 // ─── App ────────────────────────────────────────────────────
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Static files
 app.use('/admin/assets', express.static(path.join(__dirname, 'admin', 'assets')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(UPLOAD_DIR));
 
 // ─── Auth middleware ────────────────────────────────────────
 function authMiddleware(req, res, next) {
@@ -110,8 +149,7 @@ function authMiddleware(req, res, next) {
     return res.status(401).json({ error: 'Non autorisé. Token manquant.' });
   }
   try {
-    const decoded = jwt.verify(header.split(' ')[1], JWT_SECRET);
-    req.admin = decoded;
+    req.admin = jwt.verify(header.split(' ')[1], JWT_SECRET);
     next();
   } catch {
     return res.status(401).json({ error: 'Token invalide ou expiré.' });
@@ -124,20 +162,12 @@ app.post('/api/admin/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis.' });
 
-    const admin = readJSON(ADMIN_FILE);
-    if (!admin) return res.status(500).json({ error: 'Erreur configuration admin.' });
-    if (email !== admin.email) return res.status(401).json({ error: 'Email ou mot de passe incorrect.' });
-
-    const valid = await bcrypt.compare(password, admin.password);
+    const valid = await checkAdmin(email, password);
     if (!valid) return res.status(401).json({ error: 'Email ou mot de passe incorrect.' });
 
-    const token = jwt.sign(
-      { email: admin.email, name: admin.name, role: admin.role },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-
-    res.json({ token, admin: { email: admin.email, name: admin.name, role: admin.role } });
+    const admin = getAdminInfo();
+    const token = jwt.sign(admin, JWT_SECRET, { expiresIn: '24h' });
+    res.json({ token, admin });
   } catch (err) {
     res.status(500).json({ error: 'Erreur serveur.' });
   }
@@ -150,19 +180,17 @@ app.get('/api/admin/me', authMiddleware, (req, res) => {
 // ─── Routes Stats ─────────────────────────────────────────
 app.get('/api/admin/stats', authMiddleware, async (req, res) => {
   try {
-    const stats = await getStats();
-    res.json(stats);
+    res.json(await getStats());
   } catch (err) {
     res.status(500).json({ error: 'Erreur chargement stats.' });
   }
 });
 
-// ─── Routes CRUD Clients ──────────────────────────────────
+// ─── Routes CRUD Clients ─────────────────────────────────
 app.get('/api/clients', authMiddleware, async (req, res) => {
   try {
     const { search, active } = req.query;
-    const clients = await getClients(search, active);
-    res.json(clients);
+    res.json(await getClients(search, active));
   } catch (err) {
     res.status(500).json({ error: 'Erreur chargement clients.' });
   }
@@ -185,7 +213,7 @@ app.post('/api/clients', authMiddleware, async (req, res) => {
 
     const client = await createClient({
       name, email, phone, company, businessType, platforms,
-      prompt: prompt || getDefaultPrompt(name),
+      prompt: prompt || `Tu es un assistant commercial chaleureux et professionnel pour ${name}.\n\nTon rôle est d'accueillir les clients, les aider à choisir les bons produits/services, et collecter les informations nécessaires.\n\n🌍 LANGUES : Détecte automatiquement la langue du client.\n💬 SOIS : chaleureux(se), professionnel(le), empathique.\n📦 CATALOGUE : Présente uniquement les produits disponibles avec leurs prix.\n📋 COLLECTE : Demande les infos UNE PAR UNE.\n✅ VALIDATION : Une fois confirmé, génère un JSON structuré.`,
       notes
     });
     res.status(201).json(client);
@@ -283,17 +311,20 @@ app.get('/admin*', (req, res) => {
 
 app.get('/', (req, res) => res.redirect('/admin'));
 
-// ─── Start ─────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log('');
-  console.log('╔═══════════════════════════════════════════════╗');
-  console.log('║   ⚡ AGENT AI ULTRA INSTINCT — DASHBOARD     ║');
-  console.log('╠═══════════════════════════════════════════════╣');
-  console.log(`║  📍 http://localhost:${PORT}/admin            ║`);
-  console.log('║  📧 admin@ultra-instinct.ai                  ║');
-  console.log('║  🔑 admin123                                 ║');
-  console.log('╚═══════════════════════════════════════════════╝');
-  console.log('');
-});
-
+// ─── Vercel handler (export) ─────────────────────────────
 export default app;
+
+// ─── Local development ───────────────────────────────────
+if (!isVercel) {
+  app.listen(PORT, () => {
+    console.log('');
+    console.log('╔═══════════════════════════════════════════════╗');
+    console.log('║   ⚡ AGENT AI ULTRA INSTINCT — DASHBOARD     ║');
+    console.log('╠═══════════════════════════════════════════════╣');
+    console.log(`║  📍 http://localhost:${PORT}/admin            ║`);
+    console.log('║  📧 admin@ultra-instinct.ai                  ║');
+    console.log('║  🔑 admin123                                 ║');
+    console.log('╚═══════════════════════════════════════════════╝');
+    console.log('');
+  });
+}
