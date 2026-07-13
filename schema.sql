@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS clients (
   active BOOLEAN DEFAULT true,
   platforms JSONB DEFAULT '{"messenger":false,"instagram":false,"whatsapp":false,"telegram":false}',
   prompt TEXT DEFAULT '',
+  api_key TEXT DEFAULT '',
+  api_model TEXT DEFAULT 'deepseek-v4-flash-free',
   logo TEXT DEFAULT '',
   catalog JSONB DEFAULT '[]',
   catalog_filename TEXT DEFAULT '',

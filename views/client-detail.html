@@ -111,6 +111,26 @@
           </div>
         </div>
 
+        <!-- API Key -->
+        <div class="section-card">
+          <h2 class="text-lg font-semibold text-white mb-4">🔑 Clé API OpenCode Zen</h2>
+          <div class="space-y-3">
+            <div>
+              <label class="form-label">Clé API du client</label>
+              <div class="flex gap-2">
+                <input type="password" id="editApiKey" class="form-input flex-1" placeholder="opencode_api_key_..." />
+                <button type="button" onclick="toggleApiKeyVisibility()" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-purple-300 hover:text-white transition text-sm">👁️</button>
+              </div>
+              <p class="text-purple-300/40 text-xs mt-1">Sa clé OpenCode Zen personnelle. Laisse vide pour utiliser la clé globale du serveur.</p>
+            </div>
+            <div>
+              <label class="form-label">Modèle (optionnel)</label>
+              <input type="text" id="editApiModel" class="form-input" placeholder="deepseek-v4-flash-free" />
+              <p class="text-purple-300/40 text-xs mt-1">Par défaut : deepseek-v4-flash-free</p>
+            </div>
+          </div>
+        </div>
+
         <!-- Logo -->
         <div class="section-card">
           <h2 class="text-lg font-semibold text-white mb-4">🖼️ Logo / Image du bot</h2>
@@ -230,6 +250,8 @@
       document.getElementById('editBusinessType').value = c.businessType || 'autre';
       document.getElementById('editPrompt').value = c.prompt || '';
       document.getElementById('editNotes').value = c.notes || '';
+      document.getElementById('editApiKey').value = c.api_key || '';
+      document.getElementById('editApiModel').value = c.api_model || 'deepseek-v4-flash-free';
 
       document.getElementById('platMessenger').checked = c.platforms?.messenger || false;
       document.getElementById('platInstagram').checked = c.platforms?.instagram || false;
@@ -295,6 +317,8 @@
           },
           prompt: document.getElementById('editPrompt').value,
           notes: document.getElementById('editNotes').value,
+          api_key: document.getElementById('editApiKey').value,
+          api_model: document.getElementById('editApiModel').value,
         });
 
         currentClient = updated;
@@ -381,6 +405,12 @@ Ton rôle est d'accueillir les clients, les aider à choisir les bons produits/s
         showError('Erreur upload catalogue : ' + err.message);
       }
     });
+
+    // Toggle API key visibility
+    function toggleApiKeyVisibility() {
+      const input = document.getElementById('editApiKey');
+      input.type = input.type === 'password' ? 'text' : 'password';
+    }
   </script>
 </body>
 </html>

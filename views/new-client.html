@@ -87,6 +87,22 @@
           <p class="text-purple-300/40 text-xs mt-2">Ce prompt sera injecté dans le LLM pour définir la personnalité et le comportement du bot.</p>
         </div>
 
+        <!-- API Key -->
+        <div class="section-card">
+          <h2 class="text-lg font-semibold text-white mb-4">🔑 Clé API OpenCode Zen</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="form-label">Clé API du client (optionnelle)</label>
+              <input type="password" id="apiKey" class="form-input" placeholder="opencode_api_key_..." />
+              <p class="text-purple-300/40 text-xs mt-1">Laisse vide pour utiliser la clé globale du serveur.</p>
+            </div>
+            <div>
+              <label class="form-label">Modèle (optionnel)</label>
+              <input type="text" id="apiModel" class="form-input" placeholder="deepseek-v4-flash-free" />
+            </div>
+          </div>
+        </div>
+
         <!-- Notes -->
         <div class="section-card">
           <h2 class="text-lg font-semibold text-white mb-4">📝 Notes internes</h2>
@@ -153,6 +169,8 @@ Ton rôle est d'accueillir les clients, les aider à choisir les bons produits/s
           },
           prompt: document.getElementById('prompt').value,
           notes: document.getElementById('notes').value,
+          api_key: document.getElementById('apiKey').value,
+          api_model: document.getElementById('apiModel').value,
         });
 
         showSuccess(`✅ Client "${data.name}" créé avec succès !`);
