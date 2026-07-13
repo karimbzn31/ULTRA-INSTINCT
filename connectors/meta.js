@@ -12,38 +12,47 @@ import { generateReply } from '../bot/engine.js';
 const GRAPH_BASE = `https://graph.facebook.com/${process.env.META_API_VERSION || 'v22.0'}`;
 
 // ─── 1. VÉRIFICATION DU WEBHOOK (GET) ──────────────────
-export function verifyWebhook(req, res) {
+export async function verifyWebhook(req, res) {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
-  // Chercher dans tous les clients lequel a ce verify_token
-  // Si c'est le verify_token global du serveur
-  if (mode === 'subscribe' && token === process.env.META_VERIFY_TOKEN) {
+  console.log(`[Meta] Vérification webhook: mode=${mode}, token=${token}`);
+
+  // 1. Vérifier le token global du serveur (si défini dans les vars d'env)
+  if (mode === 'subscribe' && process.env.META_VERIFY_TOKEN && token === process.env.META_VERIFY_TOKEN) {
     console.log('[Meta] ✅ Webhook vérifié (token global)');
     return res.status(200).send(challenge);
   }
 
-  // Sinon vérifier si c'est le token d'un client
-  verifyClientWebhook(token, mode, challenge, res);
-}
+  // 2. Vérifier si c'est le token d'un client dans Supabase
+  if (mode === 'subscribe' && token) {
+    try {
+      const { data } = await supabase
+        .from('clients')
+        .select('id, name, meta_verify_token')
+        .eq('meta_verify_token', token)
+        .eq('active', true)
+        .maybeSingle();
 
-async function verifyClientWebhook(token, mode, challenge, res) {
-  try {
-    const { data } = await supabase
-      .from('clients')
-      .select('id, name, meta_verify_token')
-      .eq('meta_verify_token', token)
-      .eq('active', true)
-      .maybeSingle();
-
-    if (data && mode === 'subscribe') {
-      console.log(`[Meta] ✅ Webhook vérifié pour client: ${data.name}`);
-      return res.status(200).send(challenge);
+      if (data) {
+        console.log(`[Meta] ✅ Webhook vérifié pour client: ${data.name}`);
+        return res.status(200).send(challenge);
+      }
+    } catch (err) {
+      console.warn('[Meta] Erreur vérification Supabase:', err.message);
     }
-  } catch {}
+  }
 
-  console.warn('[Meta] ❌ Échec vérification webhook');
+  // 3. Fallback : si aucun token global n'est défini ET aucun client avec ce token,
+  //    on accepte quand même (mode setup/découverte)
+  if (mode === 'subscribe' && !process.env.META_VERIFY_TOKEN) {
+    console.log(`[Meta] ✅ Webhook vérifié (mode setup - aucun token configuré, token accepté: "${token}")`);
+    return res.status(200).send(challenge);
+  }
+
+  // 3. Si on arrive ici, c'est que le token ne correspond à rien
+  console.warn(`[Meta] ❌ Échec vérification - token "${token}" inconnu`);
   return res.status(403).send('Verification failed');
 }
 
