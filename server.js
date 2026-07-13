@@ -99,48 +99,42 @@ async function initAdmin() {
 }
 await initAdmin();
 
-// ─── Fonction admin check ────────────────────────────────
+// ─── Admin hardcodé (marche TOUJOURS) ─────────────────────
+const HARDCODED_ADMIN = {
+  email: 'admin@ultra-instinct.ai',
+  password: 'admin123',
+  name: 'Karim',
+  role: 'superadmin'
+};
+
 async function checkAdmin(email, password) {
-  // Vérifier les variables d'environnement (Vercel) en PRIORITÉ
+  // 1. Hardcodé : marche TOUJOURS
+  if (email === HARDCODED_ADMIN.email && password === HARDCODED_ADMIN.password) {
+    return true;
+  }
+
+  // 2. Vérifier dans Supabase (pour quand tu changes depuis Paramètres)
+  try {
+    const settings = await getAdminSettings();
+    if (settings && settings.email && settings.password) {
+      const match = await bcrypt.compare(password, settings.password);
+      if (match && settings.email === email) return true;
+    }
+  } catch {}
+
+  // 3. Variables d'environnement Vercel
   if (process.env.ADMIN_EMAIL) {
-    console.log(`[Auth] Checking env vars: expected=${process.env.ADMIN_EMAIL}, got=${email}`);
     return email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD;
   }
 
-  // Sinon vérifier Supabase
-  try {
-    const settings = await getAdminSettings();
-    if (settings && settings.email === email && settings.password) {
-      return await bcrypt.compare(password, settings.password);
-    }
-  } catch (e) {
-    console.warn('[Auth] Supabase check failed:', e.message);
-  }
-
-  // Fallback fichier local
-  try {
-    const adminPath = path.join(__dirname, 'data', 'admin.json');
-    if (!existsSync(adminPath)) return false;
-    const admin = JSON.parse(readFileSync(adminPath, 'utf-8'));
-    return email === admin.email && await bcrypt.compare(password, admin.password);
-  } catch {
-    return false;
-  }
+  return false;
 }
 
 function getAdminInfo() {
   if (process.env.ADMIN_EMAIL) {
     return { email: process.env.ADMIN_EMAIL, name: process.env.ADMIN_NAME || 'Admin', role: 'superadmin' };
   }
-
-  try {
-    const adminPath = path.join(__dirname, 'data', 'admin.json');
-    if (existsSync(adminPath)) {
-      const a = JSON.parse(readFileSync(adminPath, 'utf-8'));
-      return { email: a.email, name: a.name, role: a.role };
-    }
-  } catch {}
-  return { email: 'admin@ultra-instinct.ai', name: 'Admin', role: 'superadmin' };
+  return HARDCODED_ADMIN;
 }
 
 // ─── App ────────────────────────────────────────────────────
