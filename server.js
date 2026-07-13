@@ -164,45 +164,13 @@ function authMiddleware(req, res, next) {
   }
 }
 
-// ─── Diagnostic ───────────────────────────────────────────
-app.get('/api/debug', (req, res) => {
+// ─── Diagnostic (sécurisé : ne montre pas les valeurs) ────
+app.get('/api/health', (req, res) => {
   res.json({
+    status: 'ok',
     vercel: !!process.env.VERCEL,
-    adminEmail: process.env.ADMIN_EMAIL ? '✅ définie' : '❌ NON définie',
-    adminPassword: process.env.ADMIN_PASSWORD ? '✅ définie' : '❌ NON définie',
-    supabaseUrl: process.env.SUPABASE_URL ? '✅ définie' : '❌ NON définie',
-    supabaseKey: process.env.SUPABASE_SERVICE_KEY ? '✅ définie' : '❌ NON définie',
-  });
-});
-
-// ─── Diagnostic PUBLIC (sans auth) ────────────────────────
-app.get('/api/debug', (req, res) => {
-  res.json({
-    vercel: !!process.env.VERCEL,
-    adminEmail: process.env.ADMIN_EMAIL || '❌ non défini',
-    adminPassword: process.env.ADMIN_PASSWORD ? '✅ défini (' + process.env.ADMIN_PASSWORD + ')' : '❌ non défini',
-    node: process.version,
-    env: process.env.NODE_ENV || 'none',
-  });
-});
-
-// ─── Route TEST login direct (sans abstraction) ───────────
-app.post('/api/test-login', async (req, res) => {
-  const { email, password } = req.body;
-
-  // Hardcodé
-  const hardMatch = email === 'admin@ultra-instinct.ai' && password === 'admin123';
-
-  // Env vars
-  const envMatch = process.env.ADMIN_EMAIL && email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD;
-
-  res.json({
-    hardMatch,
-    envMatch,
-    hardcoded_email: 'admin@ultra-instinct.ai',
-    hardcoded_password: 'admin123',
-    env_email: process.env.ADMIN_EMAIL || 'none',
-    env_password: process.env.ADMIN_PASSWORD || 'none',
+    supabase: process.env.SUPABASE_URL ? '✅ configuré' : '❌ non configuré',
+    admin: process.env.ADMIN_EMAIL || 'hardcodé',
   });
 });
 
@@ -385,15 +353,6 @@ app.post('/api/test-bot', async (req, res) => {
   }
 });
 
-// ─── Global error handler (empêche les crashs Express) ──
-app.use((err, req, res, next) => {
-  console.error('[Server] Erreur non gérée:', err.message || err);
-  if (req.path.startsWith('/api/')) {
-    return res.status(500).json({ error: 'Erreur serveur interne.' });
-  }
-  next(err);
-});
-
 // ─── Pages Admin (routes explicites, pas de wildcard) ─────
 function servePage(page) {
   return (req, res) => {
@@ -411,6 +370,16 @@ app.get('/admin/clients', servePage('clients.html'));
 app.get('/admin/client', servePage('client-detail.html'));
 app.get('/admin/new-client', servePage('new-client.html'));
 app.get('/admin/settings', servePage('settings.html'));
+
+// ─── Global error handler (DOIT ÊTRE APRÈS toutes les routes) ──
+app.use((err, req, res, next) => {
+  console.error('[Server] Erreur non gérée:', err.message || err);
+  if (req.path?.startsWith('/api/')) {
+    return res.status(500).json({ error: 'Erreur serveur interne.' });
+  }
+  // Pour les pages, rediriger vers la page d'erreur
+  res.status(500).sendFile(path.join(__dirname, 'views', 'login.html'));
+});
 
 // ─── Vercel handler (export) ─────────────────────────────
 export default app;
