@@ -363,22 +363,23 @@ app.post('/api/upload/catalog', authMiddleware, upload.single('catalog'), async 
   }
 });
 
-// ─── Pages Admin ─────────────────────────────────────────
-app.get('/admin*', (req, res) => {
-  let page = 'login.html';
-  const pathname = req.path.replace('/admin', '') || '/';
+// ─── Pages Admin (routes explicites, pas de wildcard) ─────
+function servePage(page) {
+  return (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', page));
+  };
+}
 
-  if (pathname === '/' || pathname === '/login') page = 'login.html';
-  else if (pathname === '/dashboard') page = 'dashboard.html';
-  else if (pathname === '/clients') page = 'clients.html';
-  else if (pathname === '/client') page = 'client-detail.html';
-  else if (pathname === '/new-client') page = 'new-client.html';
-  else if (pathname === '/settings') page = 'settings.html';
-
-  res.sendFile(path.join(__dirname, 'views', page));
-});
-
-app.get('/', (req, res) => res.redirect('/admin'));
+app.get('/', servePage('login.html'));
+app.get('/health', (req, res) => res.send('✅ Ultra Instinct OK'));
+app.get('/admin', servePage('login.html'));
+app.get('/admin/', servePage('login.html'));
+app.get('/admin/login', servePage('login.html'));
+app.get('/admin/dashboard', servePage('dashboard.html'));
+app.get('/admin/clients', servePage('clients.html'));
+app.get('/admin/client', servePage('client-detail.html'));
+app.get('/admin/new-client', servePage('new-client.html'));
+app.get('/admin/settings', servePage('settings.html'));
 
 // ─── Vercel handler (export) ─────────────────────────────
 export default app;
