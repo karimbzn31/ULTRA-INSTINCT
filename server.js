@@ -144,7 +144,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Static files
-app.use('/admin/assets', express.static(path.join(__dirname, 'admin', 'assets')));
+app.use('/assets', express.static(path.join(__dirname, 'views', 'assets')));
 app.use('/uploads', express.static(UPLOAD_DIR));
 
 // ─── Auth middleware ────────────────────────────────────────
@@ -375,7 +375,7 @@ app.get('/admin*', (req, res) => {
   else if (pathname === '/new-client') page = 'new-client.html';
   else if (pathname === '/settings') page = 'settings.html';
 
-  res.sendFile(path.join(__dirname, 'admin', page));
+  res.sendFile(path.join(__dirname, 'views', page));
 });
 
 app.get('/', (req, res) => res.redirect('/admin'));
