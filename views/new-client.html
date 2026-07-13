@@ -297,13 +297,17 @@
       if (currentStep > 0) { currentStep--; updateSteps(); }
     }
 
+    // ─── Afficher une erreur VISIBLE et bloquer ────────
+    function blockWithError(msg) {
+      alert('⛔ ' + msg);
+      showError('⛔ ' + msg);
+      return false;
+    }
+
     function validateStep1() {
       const name = document.getElementById('name').value.trim();
       const email = document.getElementById('email').value.trim();
-      if (!name || !email) {
-        showError('❌ Le nom et l\'email sont requis.');
-        return false;
-      }
+      if (!name || !email) return blockWithError('Nom et email sont obligatoires.');
       return true;
     }
 
@@ -313,10 +317,7 @@
         || document.getElementById('platInstagram').checked
         || document.getElementById('platWhatsapp').checked
         || document.getElementById('platTelegram').checked;
-      if (!hasPlatform) {
-        showError('❌ Coche au moins une plateforme (Messenger, Instagram...)');
-        return false;
-      }
+      if (!hasPlatform) return blockWithError('Coche au moins une plateforme.');
 
       // Vérifier les clés API selon les capacités
       const caps = document.querySelector('input[name="capabilities"]:checked')?.value || 'text';
@@ -324,13 +325,12 @@
       const hasWhisper = document.getElementById('whisperKey').value.trim();
 
       if ((caps === 'text_image' || caps === 'text_image_audio') && !hasGemini) {
-        // Avertir mais ne pas bloquer (la clé globale peut exister)
-        if (!confirm('⚠️ Tu as coché "Images" mais tu n\'as pas mis de clé Gemini.\n\nLe bot utilisera la clé globale du serveur si elle existe.\nSinon, les images ne fonctionneront pas.\n\nContinuer quand même ?')) {
+        if (!confirm('⚠️ Capacité "Images" mais pas de clé Gemini.\n\nUtiliser la clé globale du serveur ?\n\n"OK" = continuer, "Annuler" = revenir')) {
           return false;
         }
       }
       if (caps === 'text_image_audio' && !hasWhisper) {
-        if (!confirm('⚠️ Tu as coché "Audio" mais tu n\'as pas mis de clé Whisper.\n\nLe bot utilisera la clé globale du serveur si elle existe.\nSinon, les audios ne fonctionneront pas.\n\nContinuer quand même ?')) {
+        if (!confirm('⚠️ Capacité "Audio" mais pas de clé Whisper.\n\nUtiliser la clé globale du serveur ?\n\n"OK" = continuer, "Annuler" = revenir')) {
           return false;
         }
       }
@@ -339,20 +339,13 @@
     }
 
     function validateStep3() {
-      const price = document.getElementById('price').value;
-      if (!price || parseFloat(price) <= 0) {
-        // Le prix est optionnel, on avertit mais on bloque pas
-        return true;
-      }
+      // Tout est optionnel, toujours OK
       return true;
     }
 
     function validateStep4() {
       const prompt = document.getElementById('prompt').value.trim();
-      if (!prompt || prompt.length < 10) {
-        showError('❌ Le prompt doit contenir au moins 10 caractères.');
-        return false;
-      }
+      if (!prompt || prompt.length < 10) return blockWithError('Le prompt doit faire au moins 10 caractères.');
       return true;
     }
 
