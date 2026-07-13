@@ -1,0 +1,212 @@
+// ============================================================
+// ⚡ ULTRA INSTINCT — Bot Engine
+// ============================================================
+// Reçoit un message d'un client, utilise SA config (clé API,
+// prompt, modèle, capacités) pour générer une réponse via LLM.
+// ============================================================
+
+import axios from 'axios';
+import { getClient, getSession, saveSession, addToHistory, getHistory } from './session.js';
+
+// ─── Configuration par défaut ─────────────────────────────
+const OPENCODE_BASE = (process.env.OPENCODE_BASE_URL || 'https://opencode.ai/zen/v1').replace(/\/+$/, '');
+const GLOBAL_API_KEY = process.env.OPENCODE_API_KEY || '';
+const GLOBAL_MODEL = process.env.OPENCODE_MODEL || 'deepseek-v4-flash-free';
+
+// ─── Générer la réponse selon la config du client ─────────
+export async function generateReply(clientId, platform, senderId, messageType, content, attachmentUrl) {
+  try {
+    // 1. Récupérer le client avec sa config
+    const client = await getClient(clientId);
+    if (!client || !client.active) {
+      console.log(`[Bot] Client ${clientId} inactif ou introuvable`);
+      return null;
+    }
+
+    // 2. Utiliser SA clé API ou la clé globale
+    const apiKey = client.api_key || GLOBAL_API_KEY;
+    const model = client.api_model || GLOBAL_MODEL;
+
+    // 3. Vérifier les capacités du bot
+    const capabilities = client.bot_capabilities || 'text';
+
+    // 4. Gérer selon le type de message
+    if (messageType === 'image' && capabilities !== 'text_image_audio' && capabilities !== 'text_image') {
+      return "Désolée, je ne peux pas analyser les images pour le moment. Peux-tu me décrire ce dont tu as besoin ?";
+    }
+
+    if (messageType === 'audio' && capabilities !== 'text_image_audio') {
+      return "Désolée, je ne peux pas traiter les messages vocaux pour le moment. Peux-tu m'écrire ?";
+    }
+
+    // 5. Construire le prompt système
+    const systemPrompt = buildSystemPrompt(client);
+
+    // 6. Récupérer l'historique de session
+    const session = getSession(clientId, platform, senderId);
+    const history = getHistory(clientId, platform, senderId);
+
+    // 7. Ajouter le message à l'historique
+    let userMessage = content;
+    if (messageType === 'image') {
+      userMessage = attachmentUrl
+        ? `[Image envoyée: ${attachmentUrl}]`
+        : '[Image envoyée]';
+    } else if (messageType === 'audio') {
+      userMessage = `[Message vocal: ${content || 'audio reçu'}]`;
+    }
+
+    addToHistory(clientId, platform, senderId, 'user', userMessage);
+
+    // 8. Appeler le LLM selon le type
+    let reply;
+
+    if (messageType === 'image' && capabilities === 'text_image_audio') {
+      // Image → Gemini (si configuré) ou DeepSeek avec description
+      reply = await callLLM(history, systemPrompt, apiKey, model);
+      reply = `[Image reçue] ${reply}`;
+    } else if (messageType === 'audio') {
+      // Audio → Whisper puis DeepSeek
+      reply = await callLLM(history, systemPrompt, apiKey, model);
+    } else {
+      // Texte → DeepSeek
+      reply = await callLLM(history, systemPrompt, apiKey, model);
+    }
+
+    // 9. Ajouter la réponse à l'historique
+    addToHistory(clientId, platform, senderId, 'assistant', reply);
+
+    // 10. Sauvegarder la session
+    saveSession(clientId, platform, senderId, session);
+
+    // 11. Journaliser le message
+    await logMessage(clientId, platform, senderId, 'user', userMessage);
+    await logMessage(clientId, platform, senderId, 'assistant', reply);
+
+    // 12. Mettre à jour les stats
+    await updateStats(clientId);
+
+    return reply;
+  } catch (err) {
+    console.error(`[Bot] Erreur pour client ${clientId}:`, err.message);
+    return "Désolée, une erreur technique est survenue. Réessaie plus tard. 😊";
+  }
+}
+
+// ─── Construction du prompt système ───────────────────────
+function buildSystemPrompt(client) {
+  const pricing = client.pricing || {};
+  const catalogList = client.catalog || [];
+
+  const parts = [];
+
+  // Prompt personnalisé du client
+  if (client.prompt) {
+    parts.push(client.prompt);
+  } else {
+    parts.push(`Tu es un assistant commercial pour ${client.company || client.name}.`);
+    parts.push('Sois chaleureux(se), professionnel(le) et efficace.');
+    parts.push(`🌍 Langues : français, arabe, darija — réponds dans la langue du client.`);
+  }
+
+  // Prix et livraison
+  if (pricing.price || pricing.conditions) {
+    const delivery = pricing.delivery_free
+      ? '💰 Livraison OFFERTE'
+      : `💰 Livraison : ${pricing.delivery_fee || 0} ${pricing.currency || 'DZD'}`;
+    parts.push(`\n---\n💲 PRIX & CONDITIONS :`);
+    if (pricing.price) parts.push(`💰 Prix à partir de : ${pricing.price} ${pricing.currency || 'DZD'}`);
+    parts.push(delivery);
+    if (pricing.conditions) parts.push(`📋 Conditions : ${pricing.conditions}`);
+  }
+
+  // Catalogue
+  if (catalogList.length > 0) {
+    parts.push(`\n---\n📦 CATALOGUE :`);
+    parts.push(JSON.stringify(catalogList, null, 2));
+    parts.push('Présente uniquement les produits disponibles.');
+  }
+
+  // Règles de collecte
+  parts.push(`\n---\n📋 COLLECTE D'INFOS :`);
+  parts.push('Demande les informations UNE PAR UNE, naturellement.');
+  parts.push('Ne demande JAMAIS tout d\'un coup.');
+
+  return parts.join('\n');
+}
+
+// ─── Appel LLM (DeepSeek via OpenCode Zen) ────────────────
+async function callLLM(history, systemPrompt, apiKey, model) {
+  if (!apiKey) {
+    return "Le service n'est pas configuré. Contacte l'administrateur.";
+  }
+
+  try {
+    const messages = [{ role: 'system', content: systemPrompt }];
+    for (const msg of history) {
+      if (msg.role !== 'system') {
+        messages.push({ role: msg.role, content: msg.content });
+      }
+    }
+
+    const response = await axios.post(
+      `${OPENCODE_BASE}/chat/completions`,
+      {
+        model,
+        messages,
+        temperature: 0.7,
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 30000,
+      }
+    );
+
+    const text = response?.data?.choices?.[0]?.message?.content
+      || response?.data?.choices?.[0]?.message?.reasoning
+      || response?.data?.choices?.[0]?.message?.reasoning_content
+      || '';
+
+    if (!text) {
+      console.warn('[Bot] Réponse vide du LLM');
+      return "Je n'ai pas pu générer de réponse. Peux-tu reformuler ?";
+    }
+
+    return text;
+  } catch (error) {
+    const errDetail = error.response?.data || error.message;
+    console.error('[Bot] Erreur API LLM:', JSON.stringify(errDetail));
+    return "Je rencontre un problème technique. Réessaie dans un instant. 😊";
+  }
+}
+
+// ─── Enregistrer un message ──────────────────────────────
+async function logMessage(clientId, platform, userId, sender, content) {
+  try {
+    const { supabase } = await import('../lib/supabase.js');
+    await supabase.from('messages').insert([{
+      client_id: clientId,
+      platform,
+      sender,
+      content: typeof content === 'string' ? content.substring(0, 500) : '',
+      message_type: 'text',
+    }]);
+  } catch {}
+}
+
+// ─── Mettre à jour les stats du client ───────────────────
+async function updateStats(clientId) {
+  try {
+    const { supabase, getClient } = await import('../lib/supabase.js');
+    const client = await getClient(clientId);
+    if (client) {
+      const stats = client.stats || {};
+      stats.messages_processed = (stats.messages_processed || 0) + 1;
+      stats.last_activity = new Date().toISOString();
+      await supabase.from('clients').update({ stats }).eq('id', clientId);
+    }
+  } catch {}
+}

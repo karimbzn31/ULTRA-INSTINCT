@@ -19,6 +19,9 @@ import {
   toggleClient, deleteClient, getStats, getAdminSettings, updateAdminSettings
 } from './lib/supabase.js';
 
+// ─── Connecteurs ────────────────────────────────────────────
+import { verifyWebhook, handleIncoming } from './connectors/index.js';
+
 // ─── Config ────────────────────────────────────────────────
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3580;
@@ -276,13 +279,13 @@ app.get('/api/clients/:id', authMiddleware, async (req, res) => {
 
 app.post('/api/clients', authMiddleware, async (req, res) => {
   try {
-    const { name, email, phone, company, businessType, platforms, prompt, notes, api_key, api_model } = req.body;
+    const { name, email, phone, company, businessType, platforms, prompt, notes, api_key, api_model, meta_token, meta_page_id, meta_verify_token, bot_capabilities, pricing } = req.body;
     if (!name || !email) return res.status(400).json({ error: 'Nom et email requis.' });
 
     const client = await createClient({
       name, email, phone, company, businessType, platforms,
       prompt: prompt || `Tu es un assistant commercial chaleureux et professionnel pour ${name}.\n\nTon rôle est d'accueillir les clients, les aider à choisir les bons produits/services, et collecter les informations nécessaires.\n\n🌍 LANGUES : Détecte automatiquement la langue du client.\n💬 SOIS : chaleureux(se), professionnel(le), empathique.\n📦 CATALOGUE : Présente uniquement les produits disponibles avec leurs prix.\n📋 COLLECTE : Demande les infos UNE PAR UNE.\n✅ VALIDATION : Une fois confirmé, génère un JSON structuré.`,
-      notes, api_key, api_model
+      notes, api_key, api_model, meta_token, meta_page_id, meta_verify_token, bot_capabilities, pricing
     });
     res.status(201).json(client);
   } catch (err) {
@@ -292,11 +295,11 @@ app.post('/api/clients', authMiddleware, async (req, res) => {
 
 app.put('/api/clients/:id', authMiddleware, async (req, res) => {
   try {
-    const { name, email, phone, company, businessType, platforms, prompt, notes, api_key, api_model } = req.body;
+    const { name, email, phone, company, businessType, platforms, prompt, notes, api_key, api_model, meta_token, meta_page_id, meta_verify_token, bot_capabilities, pricing } = req.body;
     const client = await updateClient(req.params.id, {
       name, email, phone, company,
       business_type: businessType,
-      platforms, prompt, notes, api_key, api_model
+      platforms, prompt, notes, api_key, api_model, meta_token, meta_page_id, meta_verify_token, bot_capabilities, pricing
     });
     if (!client) return res.status(404).json({ error: 'Client non trouvé.' });
     res.json(client);
@@ -362,6 +365,10 @@ app.post('/api/upload/catalog', authMiddleware, upload.single('catalog'), async 
     res.status(500).json({ error: 'Erreur upload catalogue.' });
   }
 });
+
+// ─── Webhook Meta (Messenger + Instagram) ──────────────
+app.get('/webhook', verifyWebhook);
+app.post('/webhook', handleIncoming);
 
 // ─── Pages Admin (routes explicites, pas de wildcard) ─────
 function servePage(page) {

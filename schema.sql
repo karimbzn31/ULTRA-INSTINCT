@@ -1,5 +1,5 @@
 -- ============================================================
--- ⚡ ULTRA INSTINCT — Schéma Supabase
+-- ⚡ ULTRA INSTINCT — Schéma Supabase (complet)
 -- ============================================================
 -- Copie-colle CE SCRIPT dans Supabase SQL Editor
 -- Va sur : https://supabase.com/dashboard/project/wpyfbqqatctcyuplhnec/sql/new
@@ -15,9 +15,14 @@ CREATE TABLE IF NOT EXISTS clients (
   business_type TEXT DEFAULT 'boutique',
   active BOOLEAN DEFAULT true,
   platforms JSONB DEFAULT '{"messenger":false,"instagram":false,"whatsapp":false,"telegram":false}',
+  bot_capabilities TEXT DEFAULT 'text',     -- 'text' | 'text_image' | 'text_image_audio'
   prompt TEXT DEFAULT '',
   api_key TEXT DEFAULT '',
   api_model TEXT DEFAULT 'deepseek-v4-flash-free',
+  meta_token TEXT DEFAULT '',               -- Page Access Token Facebook
+  meta_verify_token TEXT DEFAULT '',         -- Verify Token pour le webhook
+  meta_page_id TEXT DEFAULT '',              -- Facebook Page ID
+  pricing JSONB DEFAULT '{"price":0,"delivery_free":false,"delivery_fee":0,"currency":"DZD","conditions":""}',
   logo TEXT DEFAULT '',
   catalog JSONB DEFAULT '[]',
   catalog_filename TEXT DEFAULT '',
@@ -55,6 +60,7 @@ CREATE TABLE IF NOT EXISTS messages (
 -- ─── Indexes ──────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_clients_active ON clients(active);
 CREATE INDEX IF NOT EXISTS idx_clients_email ON clients(email);
+CREATE INDEX IF NOT EXISTS idx_clients_meta_page ON clients(meta_page_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_client ON sessions(client_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_messages_client ON messages(client_id);
@@ -70,7 +76,6 @@ CREATE TABLE IF NOT EXISTS admin_settings (
   CONSTRAINT single_row CHECK (id = 1)
 );
 
--- Insérer la ligne admin par défaut si elle n'existe pas
 INSERT INTO admin_settings (id, email, password, name)
 VALUES (1, 'admin@ultra-instinct.ai', '', 'Admin')
 ON CONFLICT (id) DO NOTHING;
@@ -79,8 +84,9 @@ ON CONFLICT (id) DO NOTHING;
 ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_settings ENABLE ROW LEVEL SECURITY;
 
--- Permettre tout accès via service_role (notre backend)
 CREATE POLICY "Allow all for service_role" ON clients FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for service_role" ON sessions FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for service_role" ON messages FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for service_role" ON admin_settings FOR ALL USING (true) WITH CHECK (true);
