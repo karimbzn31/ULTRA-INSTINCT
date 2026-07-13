@@ -326,11 +326,11 @@
       document.getElementById('sumPrice').textContent = price ? `${price} ${currency}${deliveryFree ? ' (livraison offerte)' : ''}` : 'Non défini';
 
       document.getElementById('sumApi').textContent = document.getElementById('apiKey').value ? '✅ Personnelle' : '🌐 Globale';
-      const caps = document.querySelector('input[name="capabilities"]:checked')?.value || 'text';
+      const capsVal = document.querySelector('input[name="capabilities"]:checked')?.value || 'text';
       const hasGemini = document.getElementById('geminiKey').value;
       const hasWhisper = document.getElementById('whisperKey').value;
-      document.getElementById('sumGemini').textContent = hasGemini ? '✅ Personnelle' : (caps === 'text' ? '— Non requis' : '⚠️ Manquante !');
-      document.getElementById('sumWhisper').textContent = hasWhisper ? '✅ Personnelle' : (caps === 'text_image_audio' ? '⚠️ Manquante !' : '— Non requis');
+      document.getElementById('sumGemini').textContent = hasGemini ? '✅ Personnelle' : (capsVal === 'text' ? '— Non requis' : '⚠️ Manquante !');
+      document.getElementById('sumWhisper').textContent = hasWhisper ? '✅ Personnelle' : (capsVal === 'text_image_audio' ? '⚠️ Manquante !' : '— Non requis');
     }
 
     // ─── LIVRAISON ═══
