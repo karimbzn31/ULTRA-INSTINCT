@@ -122,37 +122,39 @@ function buildSystemPrompt(client) {
 
   const parts = [];
 
-  // Prompt personnalisé du client
+  // 1. Prompt personnalisé du client
   if (client.prompt) {
     parts.push(client.prompt);
   } else {
     parts.push(`Tu es un assistant commercial pour ${client.company || client.name}.`);
     parts.push('Sois chaleureux(se), professionnel(le) et efficace.');
-    parts.push(`🌍 Langues : français, arabe, darija — réponds dans la langue du client.`);
+    parts.push('🌍 Langues : français, arabe, darija — réponds dans la langue du client.');
   }
 
-  // Prix et livraison
-  if (pricing.price || pricing.conditions) {
-    const delivery = pricing.delivery_free
-      ? '💰 Livraison OFFERTE'
-      : `💰 Livraison : ${pricing.delivery_fee || 0} ${pricing.currency || 'DZD'}`;
-    parts.push(`\n---\n💲 PRIX & CONDITIONS :`);
-    if (pricing.price) parts.push(`💰 Prix à partir de : ${pricing.price} ${pricing.currency || 'DZD'}`);
-    parts.push(delivery);
-    if (pricing.conditions) parts.push(`📋 Conditions : ${pricing.conditions}`);
-  }
-
-  // Catalogue
+  // 2. Catalogue formaté lisiblement (SANS JSON brut)
   if (catalogList.length > 0) {
-    parts.push(`\n---\n📦 CATALOGUE :`);
-    parts.push(JSON.stringify(catalogList, null, 2));
-    parts.push('Présente uniquement les produits disponibles.');
+    parts.push('\n---\n📦 CATALOGUE OFFICIEL (produits disponibles) :');
+    parts.push('Voici la liste EXACTE des produits à vendre. Tu ne dois JAMAIS inventer de produits.');
+
+    catalogList.forEach((p, i) => {
+      const colors = (p.colors || []).map(c => typeof c === 'string' ? c : c.name).join(', ');
+      const sizes = (p.sizes || []).join(', ');
+      const delivery = p.delivery_fee > 0 ? `Livraison: ${p.delivery_fee} DZD` : 'Livraison OFFERTE';
+
+      parts.push(`\n--- Produit ${i + 1} : ${p.name} ---`);
+      parts.push(`Prix: ${p.price} ${p.currency || 'DZD'} | ${delivery}${p.stock ? ` | Stock: ${p.stock} unités` : ''}`);
+      if (p.description) parts.push(`Description: ${p.description}`);
+      if (colors) parts.push(`Couleurs disponibles: ${colors}`);
+      if (sizes) parts.push(`Tailles disponibles: ${sizes}`);
+    });
+
+    parts.push('\nRÈGLE STRICTE : Ne propose QUE les produits listés ci-dessus. Ne cite JAMAIS un produit qui n\'est pas dans cette liste.');
   }
 
-  // Règles de collecte
-  parts.push(`\n---\n📋 COLLECTE D'INFOS :`);
+  // 3. Règles de collecte
+  parts.push('\n---\n📋 COLLECTE D\'INFOS :');
   parts.push('Demande les informations UNE PAR UNE, naturellement.');
-  parts.push('Ne demande JAMAIS tout d\'un coup.');
+  parts.push('Ne demande JAMAIS tout d\'un coup. Sois patient et chaleureux.');
 
   return parts.join('\n');
 }
