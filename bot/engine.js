@@ -175,22 +175,17 @@ async function callLLM(history, systemPrompt, apiKey, model, catalog) {
       }
     }
 
-    // ⚠️ INSTRUCTION ULTIME : coller le catalogue juste avant la réponse
+    // ⚠️ Ajouter le catalogue comme message système dédié
     if (catalog && catalog.length > 0) {
-      const lastUserIdx = messages.length - 1;
-      // Ajouter un message système juste avant le dernier message utilisateur
-      const productNames = catalog.map(p => `- ${p.name} (${p.price} DZD)`).join('\n');
-      const stockWarning = '🚫 Ne propose PAS d\'autres produits. Ne invente RIEN.';
-      const strictInstruction = `\n\n⚠️ RÈGLE STRICTE : Voici les SEULS produits disponibles :\n${productNames}\n${stockWarning}\n`;
+      const productList = catalog.map(p =>
+        `- ${p.name} | ${p.price} ${p.currency||'DZD'}${p.description ? ' : '+p.description : ''}${p.colors ? ' | Couleurs: '+p.colors.map(c=>typeof c==='string'?c:c.name).join(', ') : ''}${p.sizes ? ' | Tailles: '+p.sizes.join(', ') : ''}`
+      ).join('\n');
 
-      // On ajoute l'instruction au dernier message système ou utilisateur
-      if (messages.length > 0) {
-        const lastMsg = messages[messages.length - 1];
-        if (lastMsg.role === 'user') {
-          lastMsg.content += strictInstruction;
-          console.log('[Bot] ✅ Catalogue injecté dans le message utilisateur');
-        }
-      }
+      messages.push({
+        role: 'system',
+        content: '⚠️ INSTRUCTION ABSOLUE : Voici les SEULS produits disponibles à la vente. Ne mentionne JAMAIS un produit qui ne figure pas dans cette liste :\n\n' + productList + '\n\n🚫 RÈGLE : Ne cite que ces produits. N\'invente rien.'
+      });
+      console.log('[Bot] ✅ Catalogue injecté');
     }
 
     const response = await axios.post(
@@ -199,6 +194,7 @@ async function callLLM(history, systemPrompt, apiKey, model, catalog) {
         model,
         messages,
         temperature: 0.3, // Basse température = moins d'invention, plus de rigueur
+      },
       {
         headers: {
           'Authorization': `Bearer ${apiKey}`,
