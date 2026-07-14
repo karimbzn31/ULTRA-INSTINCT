@@ -119,6 +119,15 @@
               <option value="north-mini-code-free">💻 North Mini Code Free</option>
             </select>
           </div>
+          <div>
+            <label class="form-label">🖼️ Envoi auto des images</label>
+            <select id="editAutoImages" class="form-input text-sm">
+              <option value="never">🔴 Jamais (que sur demande)</option>
+              <option value="on_request" selected>✅ Sur demande seulement</option>
+              <option value="first_only">🟡 Au 1er message uniquement</option>
+              <option value="always">🟢 Toujours (petits catalogues)</option>
+            </select>
+          </div>
           <div><label class="form-label">🔐 OpenCode Zen</label><input type="text" id="editApiKey" class="form-input text-xs font-mono" placeholder="opencode_key..." /></div>
           <div class="grid grid-cols-2 gap-2">
             <div><label class="form-label">🖼️ Gemini</label><input type="text" id="editGeminiKey" class="form-input text-xs font-mono" placeholder="AIzaSy..." /></div>
@@ -284,6 +293,7 @@ function renderClient(c) {
   document.getElementById('editVerifyToken').value = c.meta_verify_token || '';
   document.getElementById('editGeminiKey').value = c.gemini_api_key || '';
   document.getElementById('editWhisperKey').value = c.whisper_api_key || '';
+  document.getElementById('editAutoImages').value = c.auto_images || 'on_request';
 
   const toggleBtn = document.getElementById('toggleBtn');
   toggleBtn.textContent = c.active ? '🟢 Actif' : '🔴 Inactif';
@@ -327,7 +337,8 @@ async function saveClient() {
       meta_token: document.getElementById('editMetaToken').value,
       meta_page_id: document.getElementById('editPageId').value,
       meta_verify_token: document.getElementById('editVerifyToken').value,
-      catalog: currentClient?.catalog || []
+      catalog: currentClient?.catalog || [],
+      auto_images: document.getElementById('editAutoImages').value
     });
     document.getElementById('saveStatus').classList.remove('hidden');
     setTimeout(() => document.getElementById('saveStatus').classList.add('hidden'), 3000);

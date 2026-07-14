@@ -111,14 +111,27 @@ export async function generateReply(clientId, platform, senderId, messageType, c
     // 12. Mettre à jour les stats
     await updateStats(clientId);
 
-    // 13. ENVOI D'IMAGES : UNIQUEMENT si le client demande explicitement
-    if (client.catalog && client.catalog.length > 0 && replyText) {
-      const askedForPics = /image|photo|montre|voir|affiche|pic|img|montre-moi/i.test(content || '');
+    // 13. ENVOI D'IMAGES : selon le réglage du client
+    const autoSetting = client.auto_images || 'on_request';
 
-      if (askedForPics) {
-        // Le client veut voir des produits → chercher lequel dans la réponse
-        const replyLower = replyText.toLowerCase();
-        let maxImages = 2; // Max 2 images par réponse
+    if (client.catalog && client.catalog.length > 0 && replyText && autoSetting !== 'never') {
+      const replyLower = replyText.toLowerCase();
+      const askedForPics = /image|photo|montre|voir|affiche|pic|img|montre-moi/i.test(content || '');
+      let shouldSend = false;
+
+      if (autoSetting === 'always') {
+        shouldSend = true; // Envoyer à chaque fois
+      } else if (autoSetting === 'first_only') {
+        // Envoyer seulement si c'est le premier message de l'utilisateur
+        const histLen = history?.filter(m => m.role === 'user').length || 0;
+        shouldSend = histLen <= 1;
+      } else if (askedForPics) {
+        shouldSend = true; // Sur demande seulement
+      }
+
+      if (shouldSend) {
+        let maxImages = autoSetting === 'always' ? 1 : 2; // Always = 1 max / demande = 2 max
+        let productFound = false;
 
         for (const product of client.catalog) {
           if (maxImages <= 0) break;
@@ -127,8 +140,9 @@ export async function generateReply(clientId, platform, senderId, messageType, c
           const pName = product.name.toLowerCase();
           const words = pName.split(/\s+/).filter(w => w.length > 2);
           const found = words.some(w => replyLower.includes(w)) || replyLower.includes(pName);
+          if (found) productFound = true;
 
-          if (found) {
+          if (found || autoSetting === 'always' || autoSetting === 'first_only') {
             for (const color of product.colors) {
               if (maxImages <= 0) break;
               const img = typeof color === 'string' ? '' : (color.image || '');
@@ -140,11 +154,11 @@ export async function generateReply(clientId, platform, senderId, messageType, c
           }
         }
 
-        // Si aucun produit spécifique trouvé, envoyer 1 seule image du 1er produit
-        if (imagesToSend.length === 0 && client.catalog[0]?.colors) {
+        // Fallback : 1 image du 1er produit
+        if (!productFound && client.catalog[0]?.colors) {
           const firstImg = typeof client.catalog[0].colors[0] === 'string'
             ? '' : (client.catalog[0].colors[0]?.image || '');
-          if (firstImg) imagesToSend.push(firstImg);
+          if (firstImg && imagesToSend.length === 0) imagesToSend.push(firstImg);
         }
       }
     }
