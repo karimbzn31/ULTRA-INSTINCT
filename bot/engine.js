@@ -110,21 +110,21 @@ export async function generateReply(clientId, platform, senderId, messageType, c
     // 12. Mettre à jour les stats
     await updateStats(clientId);
 
-    // 13. Chercher les images des produits mentionnés dans la réponse
-    if (client.catalog && client.catalog.length > 0) {
-      for (const product of client.catalog) {
-        if (reply.includes(product.name) && product.colors) {
-          for (const color of product.colors) {
-            const img = typeof color === 'string' ? '' : (color.image || '');
-            if (img && !imagesToSend.includes(img)) {
-              imagesToSend.push(img);
-            }
-          }
+    // 13. Chercher les images via le tag [IMAGE:NomDuProduit]
+    const replyClean = typeof reply === 'string' ? reply : (reply?.text || '');
+    const imageMatch = replyClean.match(/\[IMAGE:([^\]]+)\]/i);
+    if (imageMatch && client.catalog) {
+      const productName = imageMatch[1].trim().toLowerCase();
+      const product = client.catalog.find(p => p.name.toLowerCase() === productName);
+      if (product && product.colors) {
+        for (const color of product.colors) {
+          const img = typeof color === 'string' ? '' : (color.image || '');
+          if (img && !imagesToSend.includes(img)) imagesToSend.push(img);
         }
       }
     }
 
-    return { text: reply, images: imagesToSend };
+    return { text: replyClean.replace(/\[IMAGE:[^\]]+\]/g, '').trim(), images: imagesToSend };
   } catch (err) {
     console.error(`[Bot] Erreur pour client ${clientId}:`, err.message);
     return { text: "Désolée, une erreur technique est survenue. Réessaie plus tard. 😊", images: [] };
