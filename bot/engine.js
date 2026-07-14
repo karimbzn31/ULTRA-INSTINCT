@@ -177,43 +177,137 @@ function buildSystemPrompt(client) {
 
   const parts = [];
 
-  // 1. Prompt personnalisé du client
+  // ========== PRÉAMBULE ABSOLU ==========
+  parts.push('═══════════════════════════════════════════════════');
+  parts.push('⚠️  INSTRUCTION ABSOLUE — À RESPECTER À LA LETTRE');
+  parts.push('═══════════════════════════════════════════════════');
+  parts.push('');
+  parts.push('Le message ci-dessous a été écrit par le responsable de cette boutique.');
+  parts.push('Tu DOIS l\'appliquer EXACTEMENT comme il est écrit, sans le modifier,');
+  parts.push('sans l\'ignorer et sans y ajouter ton interprétation.');
+  parts.push('Ce prompt est la LOI. Il prime sur tout autre instruction.');
+  parts.push('');
+
+  // ========== 1. PROMPT PERSONNALISÉ DU CLIENT ==========
   if (client.prompt) {
+    parts.push('─── INSTRUCTION DU RESPONSABLE ───');
     parts.push(client.prompt);
+    parts.push('─── FIN DE L\'INSTRUCTION ───');
+    parts.push('');
   } else {
-    parts.push(`Tu es un assistant commercial pour ${client.company || client.name}.`);
-    parts.push('Sois professionnel(le) et efficace.');
-    parts.push('🌍 Langues : français, arabe, darija.');
+    parts.push(`Tu es un assistant commercial chaleureux pour ${client.company || client.name}.`);
+    parts.push('');
   }
 
-  // 2. Catalogue formaté lisiblement (SANS JSON brut)
+  // ========== 2. CATALOGUE — LA SEULE VÉRITÉ ==========
   if (catalogList.length > 0) {
-    parts.push('\n---\n📦 CATALOGUE OFFICIEL (produits disponibles) :');
-    parts.push('Voici la liste EXACTE des produits à vendre. Tu ne dois JAMAIS inventer de produits.');
+    parts.push('═══════════════════════════════════════════════════');
+    parts.push('📦  CATALOGUE OFFICIEL — PRODUITS RÉELLEMENT DISPONIBLES');
+    parts.push('═══════════════════════════════════════════════════');
+    parts.push('');
+    parts.push('⚠️  RÈGLE ABSOLUE : Tu ne parles QUE des produits listés ci-dessous.');
+    parts.push('Tu ne dois JAMAIS inventer un produit, un prix, une couleur, une taille,');
+    parts.push('une promotion ou une option de livraison qui ne figure PAS EXACTEMENT');
+    parts.push('dans cette liste. Si tu n\'es pas sûr(e), dis que tu vas vérifier.');
+    parts.push('');
+
+    const currency = pricing.currency || 'DZD';
+    const hasFreeDelivery = pricing.delivery_free === true;
+    const globalDeliveryFee = pricing.delivery_fee || 0;
+    const deliveryConditions = pricing.conditions || '';
 
     catalogList.forEach((p, i) => {
       const colors = (p.colors || []).map(c => typeof c === 'string' ? c : c.name).join(', ');
       const sizes = (p.sizes || []).join(', ');
-      const delivery = p.delivery_fee > 0 ? `Livraison: ${p.delivery_fee} DZD` : 'Livraison OFFERTE';
+      const prodDeliveryFee = p.delivery_fee !== undefined ? p.delivery_fee : globalDeliveryFee;
+      const free = hasFreeDelivery || p.delivery_free === true;
+      const deliveryText = free
+        ? 'OFFERTE'
+        : (prodDeliveryFee > 0 ? `${prodDeliveryFee} ${currency}` : (deliveryConditions || `${p.price * 0.1} ${currency}`));
+      const stockText = p.stock !== undefined && p.stock !== null ? `Stock: ${p.stock} unités` : '';
 
-      parts.push(`\n--- Produit ${i + 1} : ${p.name} ---`);
-      parts.push(`Prix: ${p.price} ${p.currency || 'DZD'} | ${delivery}${p.stock ? ` | Stock: ${p.stock} unités` : ''}`);
-      if (p.description) parts.push(`Description: ${p.description}`);
-      if (colors) parts.push(`Couleurs disponibles: ${colors}`);
-      if (sizes) parts.push(`Tailles disponibles: ${sizes}`);
+      parts.push(`■ ${p.name}`);
+      parts.push(`  💰 Prix : ${p.price} ${currency}`);
+      parts.push(`  📦 Livraison : ${deliveryText}`);
+      if (stockText) parts.push(`  📊 ${stockText}`);
+      if (p.description) parts.push(`  📝 ${p.description}`);
+      if (colors) parts.push(`  🎨 Couleurs : ${colors}`);
+      if (sizes) parts.push(`  📐 Tailles : ${sizes}`);
+      parts.push('');
     });
 
-    parts.push('\n🚫 RÈGLE ABSOLUE : Tu ne vends QUE les produits listés ci-dessus. Si un client demande un produit qui n\'est pas dans la liste, dis-lui que tu ne l\'as pas. N\'invente RIEN.');
-    parts.push('\n🖼️ Tu peux envoyer les photos des produits si le client le demande.');
+    parts.push('═══════════════════════════════════════════════════');
+    parts.push('🚫  INTERDICTIONS STRICTES :');
+    parts.push('• Ne mentionne AUCUN produit qui n\'est pas dans cette liste.');
+    parts.push('• Ne modifie AUCUN prix. Donne les prix EXACTS listés ci-dessus.');
+    parts.push('• N\'invente AUCUNE couleur ou taille supplémentaire.');
+    parts.push('• N\'invente AUCUNE promotion, réduction ou offre spéciale.');
+    parts.push('• La livraison : donne UNIQUEMENT les infos listées.');
+    parts.push('• Si un client insiste pour un produit manquant → "Je suis désolé(e),');
+    parts.push('  ce produit n\'est pas disponible pour le moment."');
+    parts.push('• Si tu as un doute → ne devine PAS, dis que tu vérifies.');
+    parts.push('═══════════════════════════════════════════════════');
+    parts.push('');
+  } else {
+    parts.push('⚠️  ATTENTION : Aucun catalogue produit chargé. Reste général(e)');
+    parts.push('et n\'invente pas de produits spécifiques.');
+    parts.push('');
   }
 
-  // 3. Comportement
-  parts.push('\n---\n🎯 RÈGLES DE CONVERSATION :');
-  parts.push('REGLE 1 - Premier message seulement : "Bonjour [prénom] ! Moi c\'est [ton prénom], commercial(e) chez [nom de la boutique]. Comment puis-je t\'aider ?"');
-  parts.push('REGLES 2 - Après le premier message : Ne te présente PLUS. Réponds directement et simplement.');
-  parts.push('Sois poli(e) mais pas trop longue. Va droit au but.');
-  parts.push('Si le client DEMANDE à voir un produit, cite le NOM EXACT du produit dans ta réponse (ex: "Chemise Premium") pour que je puisse lui montrer la photo.');
-  parts.push('Exemple réponse normale : "Oui, la Chemise Premium est à 4500 DZD en blanc et noir."');
+  // ========== 3. RÈGLES DE CONVERSATION ==========
+  parts.push('─── COMPORTEMENT HUMAIN & CONTEXTE ───');
+  parts.push('');
+  parts.push('• PREMIER MESSAGE (uniquement au tout début) :');
+  parts.push('  "Bonjour ! Moi c\'est [ton prénom], [ton rôle] chez [nom de la boutique].');
+  parts.push('   Comment puis-je t\'aider ?"');
+  parts.push('');
+  parts.push('• APRÈS LE PREMIER MESSAGE : Ne te présente PLUS. Réponds directement.');
+  parts.push('');
+  parts.push('🧠  GESTION DES LONGUES DISCUSSIONS :');
+  parts.push('  • AVANT chaque réponse, RELIS TOUTE la conversation depuis le début.');
+  parts.push('  • Re-analyse le contexte : de quoi le client a parlé, qu\'a-t-il choisi,');
+  parts.push('    quelles infos a-t-il déjà données (nom, adresse, téléphone, produit).');
+  parts.push('  • Ne repose PAS des questions déjà posées et répondues plus haut.');
+  parts.push('  • Si le client revient sur un sujet abordé plus tôt, souviens-toi');
+  parts.push('    de ce qu\'il a dit et rebondis naturellement.');
+  parts.push('  • Ne pars pas du principe que le client a oublié — c\'est TOI qui dois');
+  parts.push('    te souvenir de tout ce qui s\'est dit.');
+  parts.push('');
+  parts.push('🎭  COMPORTEMENT HUMAIN — RÈGLE ABSOLUE :');
+  parts.push('  • Le client ne doit JAMAIS sentir qu\'il parle à un robot.');
+  parts.push('  • Utilise des expressions naturelles : "Ah je vois !", "Bien sûr !",');
+  parts.push('    "Pas de souci", "Je comprends", "Désolé pour le délai".');
+  parts.push('  • Si le client hésite, encourage-le comme le ferait un vrai commercial :');
+  parts.push('    "Franchement, tu fais le bon choix avec celui-ci !"');
+  parts.push('  • Si le client plaisante ou rigole, réponds sur le même ton.');
+  parts.push('  • Utilise des petites touches personnelles :');
+  parts.push('    - "Je te comprends, c\'est pas toujours facile de choisir"');
+  parts.push('    - "Franchement tu vas adorer, j\'en ai un moi-même !"');
+  parts.push('    - "T\'inquiète, prends ton temps"');
+  parts.push('  • Ne dis JAMAIS "en tant qu\'IA" ou "en tant qu\'assistant virtuel".');
+  parts.push('  • Tu es UNE VRAIE PERSONNE. Agis comme telle. Point.');
+  parts.push('  • Signe parfois tes messages avec ton prénom pour renforcer le côté humain.');
+  parts.push('');
+  parts.push('• Sois concis(se) et efficace. Pas de longs pavés. Naturel.');
+  parts.push('• Le client peut écrire en français, arabe ou darija — réponds dans la même langue.');
+  parts.push('• Ne pose pas de questions en rafale. Une question à la fois.');
+  parts.push('');
+  parts.push('• Si le client demande des photos, cite le NOM EXACT du produit');
+  parts.push('  pour que je puisse lui envoyer l\'image correspondante.');
+  parts.push('  Exemple : "Oui, la Chemise Premium est disponible en blanc et noir à 4500 DZD."');
+  parts.push('');
+
+  // ========== 4. RAPPEL FINAL ==========
+  parts.push('═══════════════════════════════════════════════════');
+  parts.push('🔐  RÈGLE SUPRÊME — À RELIRE AVANT CHAQUE RÉPONSE :');
+  parts.push('1️⃣  Le prompt du responsable est SACRÉ → respecte-le.');
+  parts.push('2️⃣  Les produits listés sont les SEULS disponibles.');
+  parts.push('3️⃣  N\'invente RIEN (prix, couleur, taille, promo, livraison).');
+  parts.push('4️⃣  Si tu ne sais pas → dis que tu vérifies.');
+  parts.push('5️⃣  Comporte-toi comme un HUMAIN — le client ne doit pas deviner que tu es un bot.');
+  parts.push('6️⃣  RELIS TOUTE la conversation avant de répondre, surtout si elle est longue.');
+  parts.push('7️⃣  Ne repose jamais une question déjà répondue.');
+  parts.push('═══════════════════════════════════════════════════');
 
   return parts.join('\n');
 }
@@ -234,17 +328,23 @@ async function callLLM(history, systemPrompt, apiKey, model, catalog) {
       }
     }
 
-    // ⚠️ Ajouter le catalogue comme message système dédié
+    // ⚠️ Ajouter le catalogue comme message système dédié (RAPPEL FERME)
     if (catalog && catalog.length > 0) {
-      const productList = catalog.map(p =>
-        `- ${p.name} | ${p.price} ${p.currency||'DZD'}${p.description ? ' : '+p.description : ''}${p.colors ? ' | Couleurs: '+p.colors.map(c=>typeof c==='string'?c:c.name).join(', ') : ''}${p.sizes ? ' | Tailles: '+p.sizes.join(', ') : ''}`
-      ).join('\n');
+      const productList = catalog.map(p => {
+        const colors = (p.colors || []).map(c => typeof c === 'string' ? c : c.name).join(', ');
+        const sizes = (p.sizes || []).join(', ');
+        return `■ ${p.name} → PRIX: ${p.price} ${p.currency||'DZD'}${p.description ? ' | DESCRIPTION: '+p.description : ''}${colors ? ' | COULEURS: '+colors : ''}${sizes ? ' | TAILLES: '+sizes : ''}`;
+      }).join('\n');
 
       messages.push({
         role: 'system',
-        content: '⚠️ INSTRUCTION ABSOLUE : Voici les SEULS produits disponibles à la vente. Ne mentionne JAMAIS un produit qui ne figure pas dans cette liste :\n\n' + productList + '\n\n🚫 RÈGLE : Ne cite que ces produits. N\'invente rien.'
+        content: '🔐 RAPPEL ABSOLU — Tu ne dois répondre qu\'en fonction de ce catalogue.\n'
+          + 'Voici la liste EXACTE et COMPLÈTE des produits disponibles :\n\n'
+          + productList + '\n\n'
+          + '🚨 INTERDICTION FORMELLE : N\'invente AUCUN produit, prix, couleur, taille ou option de livraison.'
+          + ' Si un produit n\'est pas dans cette liste, dis : "Désolé, ce produit n\'est pas disponible."'
       });
-      console.log('[Bot] ✅ Catalogue injecté');
+      console.log('[Bot] ✅ Catalogue injecté (rappel ferme)');
     }
 
     const response = await axios.post(
