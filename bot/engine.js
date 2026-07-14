@@ -46,8 +46,8 @@ export async function generateReply(clientId, platform, senderId, messageType, c
     const systemPrompt = buildSystemPrompt(client);
 
     // 6. Récupérer l'historique de session
-    const session = getSession(clientId, platform, senderId);
-    const history = getHistory(clientId, platform, senderId);
+    const session = await getSession(clientId, platform, senderId);
+    const history = await getHistory(clientId, platform, senderId);
 
     // 7. Ajouter le message à l'historique
     let userMessage = content;
@@ -59,7 +59,7 @@ export async function generateReply(clientId, platform, senderId, messageType, c
       userMessage = `[Message vocal: ${content || 'audio reçu'}]`;
     }
 
-    addToHistory(clientId, platform, senderId, 'user', userMessage);
+    await addToHistory(clientId, platform, senderId, 'user', userMessage);
 
     // 8. Traiter selon le type de message
     let reply;
@@ -98,7 +98,7 @@ export async function generateReply(clientId, platform, senderId, messageType, c
 
     // 9. Ajouter la réponse à l'historique (TEXTE SEULEMENT)
     const replyText = reply?.text || reply || '';
-    addToHistory(clientId, platform, senderId, 'assistant', replyText);
+    await addToHistory(clientId, platform, senderId, 'assistant', replyText);
 
     // 10. Sauvegarder la session
     saveSession(clientId, platform, senderId, session);
@@ -183,9 +183,12 @@ function buildSystemPrompt(client) {
   }
 
   // 3. Règles de collecte
-  parts.push('\n---\n📋 COLLECTE D\'INFOS :');
-  parts.push('Demande les informations UNE PAR UNE, naturellement.');
-  parts.push('Ne demande JAMAIS tout d\'un coup. Sois patient et chaleureux.');
+  parts.push('\n---\n📋 CONVERSATION NATURELLE :');
+  parts.push('Tu es un humain, pas un robot. Continue la conversation naturellement.');
+  parts.push('Si le client revient après un moment, reconnais-le et continue la conversation là où elle s\'est arrêtée.');
+  parts.push('Ne te présente pas à chaque message, sauf si c\'est le tout premier contact.');
+  parts.push('Sois chaleureux(se), comme un vendeur(se) qui connaît déjà son client.');
+  parts.push('Variable d\'historique : TOUS les messages précédents sont dans l\'historique ci-dessus. Utilise-les pour être cohérent.');
 
   return parts.join('\n');
 }

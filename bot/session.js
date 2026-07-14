@@ -12,11 +12,41 @@ const sessionsCache = new Map();
 const HISTORY_MAX = 30;
 
 // ─── Récupérer ou créer une session ─────────────────────
-export function getSession(clientId, platform, userId) {
+export async function getSession(clientId, platform, userId) {
   const key = `${clientId}:${platform}:${userId}`;
 
   if (sessionsCache.has(key)) {
     return sessionsCache.get(key);
+  }
+
+  // Essayer de charger l'ancienne session depuis Supabase
+  try {
+    const { data } = await supabase
+      .from('sessions')
+      .select('*')
+      .eq('client_id', clientId)
+      .eq('user_id', userId)
+      .eq('platform', platform)
+      .order('last_interaction', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (data && data.history && data.history.length > 0) {
+      const session = {
+        clientId,
+        platform,
+        userId,
+        state: data.state || 'DISCOVERY',
+        order: data.order_data || {},
+        history: data.history,
+        createdAt: data.created_at,
+        loadedFromDB: true,
+      };
+      sessionsCache.set(key, session);
+      return session;
+    }
+  } catch (err) {
+    console.warn('[Session] Erreur chargement depuis DB:', err.message);
   }
 
   // Nouvelle session
@@ -26,6 +56,7 @@ export function getSession(clientId, platform, userId) {
     userId,
     state: 'DISCOVERY',
     order: {},
+    history: [],
     createdAt: new Date().toISOString(),
   };
 
@@ -40,8 +71,8 @@ export function saveSession(clientId, platform, userId, session) {
 }
 
 // ─── Ajouter un message à l'historique ──────────────────
-export function addToHistory(clientId, platform, userId, role, content) {
-  const session = getSession(clientId, platform, userId);
+export async function addToHistory(clientId, platform, userId, role, content) {
+  const session = await getSession(clientId, platform, userId);
   if (!session.history) session.history = [];
 
   session.history.push({ role, content, timestamp: new Date().toISOString() });
@@ -50,11 +81,14 @@ export function addToHistory(clientId, platform, userId, role, content) {
   if (session.history.length > HISTORY_MAX) {
     session.history = session.history.slice(-HISTORY_MAX);
   }
+
+  // Persister immédiatement en base
+  persistSessions().catch(err => console.warn('[Session] Persist error:', err.message));
 }
 
 // ─── Récupérer l'historique ─────────────────────────────
-export function getHistory(clientId, platform, userId) {
-  const session = getSession(clientId, platform, userId);
+export async function getHistory(clientId, platform, userId) {
+  const session = await getSession(clientId, platform, userId);
   return session.history || [];
 }
 
@@ -64,12 +98,8 @@ export function resetSession(clientId, platform, userId) {
   sessionsCache.delete(key);
 }
 
-// ─── Persister les sessions en base (toutes les N opérations) ──
-let persistCounter = 0;
-
+// ─── Persister les sessions en base ──
 export async function persistSessions() {
-  persistCounter++;
-  if (persistCounter % 5 !== 0) return; // Toutes les 5 opérations
 
   for (const [key, session] of sessionsCache.entries()) {
     try {
