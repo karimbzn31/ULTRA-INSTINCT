@@ -268,11 +268,11 @@ app.post('/api/clients', authMiddleware, async (req, res) => {
 
 app.put('/api/clients/:id', authMiddleware, async (req, res) => {
   try {
-    const { name, email, phone, company, businessType, platforms, prompt, notes, api_key, api_model, gemini_api_key, whisper_api_key, meta_token, meta_page_id, meta_verify_token, bot_capabilities, pricing } = req.body;
+    const { name, email, phone, company, businessType, platforms, prompt, notes, api_key, api_model, gemini_api_key, whisper_api_key, meta_token, meta_page_id, meta_verify_token, bot_capabilities, pricing, catalog } = req.body;
     const client = await updateClient(req.params.id, {
       name, email, phone, company,
       business_type: businessType,
-      platforms, prompt, notes, api_key, api_model, gemini_api_key, whisper_api_key, meta_token, meta_page_id, meta_verify_token, bot_capabilities, pricing
+      platforms, prompt, notes, api_key, api_model, gemini_api_key, whisper_api_key, meta_token, meta_page_id, meta_verify_token, bot_capabilities, pricing, catalog
     });
     if (!client) return res.status(404).json({ error: 'Client non trouvé.' });
     res.json(client);
