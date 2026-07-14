@@ -69,7 +69,8 @@ export async function generateReply(clientId, platform, senderId, messageType, c
       // Image → Analyse avec Gemini
       console.log('[Bot] 🔍 Analyse image...');
       const geminiKey = client.gemini_api_key || process.env.GOOGLE_AI_API_KEY || '';
-      const imageAnalysis = await analyzeImage(attachmentUrl, geminiKey);
+      const metaToken = client.meta_token || '';
+      const imageAnalysis = await analyzeImage(attachmentUrl, geminiKey, metaToken);
       if (imageAnalysis) {
         mediaDescription = `\n[L'utilisateur a envoyé une image. Analyse de l'image : ${imageAnalysis}]`;
         console.log('[Bot] ✅ Image analysée par Gemini');
