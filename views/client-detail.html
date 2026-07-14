@@ -351,7 +351,7 @@ function resetPrompt() {
 
 💬 SOIS : chaleureux(se), professionnel(le), empathique.
 
-📦 PRODUITS : Tu as accès au catalogue complet. Présente les produits disponibles avec leurs prix, couleurs et tailles. Réponds naturellement.
+📦 PRODUITS : Ton catalogue est listé dans la section "CATALOGUE OFFICIEL" ci-dessous. TU NE VENDS QUE CES PRODUITS. N'invente jamais un produit qui n'y figure pas.
 
 📋 COMMANDE : Demande les infos UNE PAR UNE (nom, téléphone, adresse). Ne demande JAMAIS tout d'un coup.
 
@@ -488,7 +488,7 @@ function renderSizeTags() {
 
 document.getElementById('prodSizeInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addSize(); } });
 
-function saveProduct() {
+async function saveProduct() {
   const name = document.getElementById('prodName').value.trim();
   const price = document.getElementById('prodPrice').value;
   if (!name || !price) { showError('Nom et prix requis.'); return; }
@@ -513,8 +513,12 @@ function saveProduct() {
   }
   currentClient.catalog = products;
   renderProducts(products);
+  // Sauvegarder IMMÉDIATEMENT en base
+  try {
+    await api(`/api/clients/${clientId}`, 'PUT', { catalog: products });
+  } catch(e) { console.error('Save error:', e); }
   closeProductModal();
-  showSuccess(editingProductId ? 'Produit modifie' : 'Produit ajoute');
+  showSuccess(editingProductId ? 'Produit modifié ✅' : 'Produit ajouté ✅');
 }
 
 function editProduct(id) {
@@ -537,11 +541,12 @@ function editProduct(id) {
   document.getElementById('productModal').classList.remove('hidden');
 }
 
-function deleteProduct(id) {
+async function deleteProduct(id) {
   if (!confirm('Supprimer ce produit ?')) return;
   currentClient.catalog = (currentClient.catalog || []).filter(p => p.id !== id);
   renderProducts(currentClient.catalog);
-  showSuccess('Supprime');
+  try { await api(`/api/clients/${clientId}`, 'PUT', { catalog: currentClient.catalog }); } catch(e) {}
+  showSuccess('Produit supprimé ✅');
 }
 
 function renderProducts(products) {

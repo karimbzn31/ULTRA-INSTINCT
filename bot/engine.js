@@ -148,7 +148,7 @@ function buildSystemPrompt(client) {
       if (sizes) parts.push(`Tailles disponibles: ${sizes}`);
     });
 
-    parts.push('\nRÈGLE STRICTE : Ne propose QUE les produits listés ci-dessus. Ne cite JAMAIS un produit qui n\'est pas dans cette liste.');
+    parts.push('\n🚫 RÈGLE ABSOLUE : Tu ne vends QUE les produits listés ci-dessus. Si un client demande un produit qui n\'est pas dans la liste, dis-lui que tu ne l\'as pas. N\'invente RIEN.');
   }
 
   // 3. Règles de collecte
