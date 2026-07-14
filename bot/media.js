@@ -6,7 +6,9 @@
 // ============================================================
 
 import axios from 'axios';
-import FormData from 'form-data';
+
+const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 // ─── Analyse d'image avec Gemini ─────────────────────────
 export async function analyzeImage(imageUrl, apiKey) {
@@ -17,7 +19,7 @@ export async function analyzeImage(imageUrl, apiKey) {
 
   try {
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `${GEMINI_BASE}/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
       {
         contents: [{
           parts: [
@@ -27,7 +29,7 @@ export async function analyzeImage(imageUrl, apiKey) {
         }],
         generationConfig: { temperature: 0.4, maxOutputTokens: 300 }
       },
-      { timeout: 15000 }
+      { timeout: 20000 }
     );
 
     const text = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -42,40 +44,43 @@ export async function analyzeImage(imageUrl, apiKey) {
   }
 }
 
-// ─── Transcription audio avec Whisper ────────────────────
+// ─── Transcription audio avec GEMINI (gratuit, même clé) ──
 export async function transcribeAudio(audioUrl, apiKey) {
   if (!apiKey) {
-    console.warn('[Media] ⚠️ Clé Whisper manquante');
+    console.warn('[Media] ⚠️ Clé Gemini manquante pour audio');
     return null;
   }
 
   try {
+    console.log('[Media] 🎤 Transcription audio via Gemini...');
+
     // Télécharger l'audio
-    const audioRes = await axios.get(audioUrl, { responseType: 'arraybuffer', timeout: 15000 });
-    const audioBuffer = Buffer.from(audioRes.data);
+    const audioRes = await axios.get(audioUrl, { responseType: 'arraybuffer', timeout: 20000 });
+    const audioBase64 = Buffer.from(audioRes.data).toString('base64');
+    const mimeType = getAudioMimeType(audioUrl);
 
-    // Créer un FormData pour Whisper
-    const form = new FormData();
-    form.append('file', audioBuffer, { filename: 'audio.mp3', contentType: 'audio/mpeg' });
-    form.append('model', 'whisper-1');
-    form.append('language', 'fr');
-
-    const whisperRes = await axios.post('https://api.openai.com/v1/audio/transcriptions', form, {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        ...form.getHeaders(),
+    const response = await axios.post(
+      `${GEMINI_BASE}/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+      {
+        contents: [{
+          parts: [
+            { text: "Transcris précisément ce message vocal en texte. Ne rajoute rien d'autre que la transcription." },
+            { inline_data: { mime_type: mimeType, data: audioBase64 } }
+          ]
+        }],
+        generationConfig: { temperature: 0.1 }
       },
-      timeout: 20000,
-    });
+      { timeout: 30000 }
+    );
 
-    const text = whisperRes?.data?.text?.trim();
+    const text = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
     if (text) {
       console.log(`[Media] ✅ Audio transcrit: "${text.substring(0, 80)}..."`);
       return text;
     }
     return null;
   } catch (err) {
-    console.error('[Media] ❌ Erreur transcription:', err.response?.data?.error?.message || err.message);
+    console.error('[Media] ❌ Erreur transcription audio:', err.response?.data?.error?.message || err.message);
     return null;
   }
 }
@@ -87,6 +92,14 @@ function getMimeType(url = '') {
   if (url.includes('.gif')) return 'image/gif';
   if (url.includes('.webp')) return 'image/webp';
   return 'image/jpeg';
+}
+
+function getAudioMimeType(url = '') {
+  if (url.includes('.mp3')) return 'audio/mpeg';
+  if (url.includes('.wav')) return 'audio/wav';
+  if (url.includes('.ogg')) return 'audio/ogg';
+  if (url.includes('.m4a')) return 'audio/mp4';
+  return 'audio/mpeg';
 }
 
 async function urlToBase64(url) {
