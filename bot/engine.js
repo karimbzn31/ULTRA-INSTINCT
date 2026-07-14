@@ -9,7 +9,7 @@
 import axios from 'axios';
 import { supabase, getClient } from '../lib/supabase.js';
 import { getSession, saveSession, addToHistory, getHistory, ORDER_STATES, COLLECT_ORDER, getNextCollectState } from './session.js';
-import { analyzeImage, transcribeAudio } from './media.js';
+import { analyzeImageWithMiMo, transcribeAudio } from './media.js';
 import { pushOrderToSheet } from './sheets.js';
 
 // ─── Configuration par défaut ─────────────────────────────
@@ -118,16 +118,15 @@ export async function generateReply(clientId, platform, senderId, messageType, c
     let mediaDescription = '';
 
     if (messageType === 'image') {
-      // Image → Analyse avec Gemini
-      console.log('[Bot] 🔍 Analyse image...');
-      const geminiKey = client.gemini_api_key || process.env.GOOGLE_AI_API_KEY || '';
+      // Image → Analyse avec MiMo V2.5 (vision native OpenCode)
+      console.log('[Bot] 🔍 Analyse image avec MiMo Vision...');
       const metaToken = client.meta_token || '';
-      const imageAnalysis = await analyzeImage(attachmentUrl, geminiKey, metaToken);
+      const imageAnalysis = await analyzeImageWithMiMo(attachmentUrl, client.api_key, client.catalog, metaToken);
       if (imageAnalysis) {
-        mediaDescription = `\n[L'utilisateur a envoyé une image. Analyse de l'image : ${imageAnalysis}]`;
-        console.log('[Bot] ✅ Image analysée par Gemini');
+        mediaDescription = `\n---\n🖼️ Le client a envoyé une image. Analyse : ${imageAnalysis}\n---`;
+        console.log('[Bot] ✅ Image analysée par MiMo Vision');
       } else {
-        mediaDescription = "\n[L'utilisateur a envoyé une image mais je n'ai pas pu l'analyser. Demande-lui de décrire.]";
+        mediaDescription = "\n---\n🖼️ Le client a envoyé une image. (Analyse non disponible)\n---";
       }
       reply = await callLLM(history, systemPrompt + mediaDescription, apiKey, model, client.catalog);
 
