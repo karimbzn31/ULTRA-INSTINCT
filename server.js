@@ -374,9 +374,9 @@ app.post('/api/test-bot', async (req, res) => {
     if (!clientId || !message) return res.status(400).json({ error: 'clientId et message requis' });
 
     const { generateReply } = await import('./bot/engine.js');
-    const reply = await generateReply(clientId, 'test', 'test_user', 'text', message, null);
+    const result = await generateReply(clientId, 'test', 'test_user', 'text', message, null);
 
-    res.json({ reply });
+    res.json({ reply: result?.text || result || '', images: result?.images || [] });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

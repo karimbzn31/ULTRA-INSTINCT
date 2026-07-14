@@ -7,6 +7,7 @@
 
 import axios from 'axios';
 import { supabase } from '../lib/supabase.js';
+import { generateReply } from '../bot/engine.js';
 
 const GRAPH_BASE = `https://graph.facebook.com/${process.env.META_API_VERSION || 'v22.0'}`;
 
@@ -91,14 +92,23 @@ async function processEvent(pageId, event) {
   await markSeen(client.meta_token, senderId);
 
   // Appeler le bot
-  const { generateReply } = await import('../bot/engine.js');
-  const reply = await generateReply(client.id, 'messenger', senderId, type, content, attachmentUrl);
+  const result = await generateReply(client.id, 'messenger', senderId, type, content, attachmentUrl);
 
-  if (reply) {
+  if (result && result.text) {
     // Envoyer "typing" avant la réponse
     await typingOn(client.meta_token, senderId);
     await sleep(500);
-    await sendMessage(client.meta_token, senderId, reply);
+
+    // Envoyer le texte
+    await sendMessage(client.meta_token, senderId, result.text);
+
+    // Envoyer les images une par une
+    if (result.images && result.images.length > 0) {
+      for (const imgUrl of result.images) {
+        await sleep(300);
+        await sendImageMessage(client.meta_token, senderId, imgUrl);
+      }
+    }
   }
 }
 
@@ -145,6 +155,28 @@ async function typingOn(token, recipient) {
       timeout: 5000,
     });
   } catch {}
+}
+
+async function sendImageMessage(token, recipient, imageUrl) {
+  if (!token || !recipient || !imageUrl) return;
+  try {
+    await axios.post(`${GRAPH_BASE}/me/messages`, {
+      recipient: { id: recipient },
+      message: {
+        attachment: {
+          type: 'image',
+          payload: { url: imageUrl, is_reusable: true }
+        }
+      },
+      messaging_type: 'RESPONSE',
+    }, {
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      timeout: 15000,
+    });
+    console.log(`[Meta] 🖼️ Image envoyée à ${recipient}`);
+  } catch (err) {
+    console.error(`[Meta] ❌ Échec envoi image:`, err.response?.data?.error?.message || err.message);
+  }
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }

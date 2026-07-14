@@ -17,6 +17,7 @@ const GLOBAL_MODEL = process.env.OPENCODE_MODEL || 'deepseek-v4-flash-free';
 
 // ─── Générer la réponse selon la config du client ─────────
 export async function generateReply(clientId, platform, senderId, messageType, content, attachmentUrl) {
+  let imagesToSend = []; // Images à envoyer sur Messenger
   try {
     // 1. Récupérer le client avec sa config
     const client = await getClient(clientId);
@@ -108,10 +109,24 @@ export async function generateReply(clientId, platform, senderId, messageType, c
     // 12. Mettre à jour les stats
     await updateStats(clientId);
 
-    return reply;
+    // 13. Chercher les images des produits mentionnés dans la réponse
+    if (client.catalog && client.catalog.length > 0) {
+      for (const product of client.catalog) {
+        if (reply.includes(product.name) && product.colors) {
+          for (const color of product.colors) {
+            const img = typeof color === 'string' ? '' : (color.image || '');
+            if (img && !imagesToSend.includes(img)) {
+              imagesToSend.push(img);
+            }
+          }
+        }
+      }
+    }
+
+    return { text: reply, images: imagesToSend };
   } catch (err) {
     console.error(`[Bot] Erreur pour client ${clientId}:`, err.message);
-    return "Désolée, une erreur technique est survenue. Réessaie plus tard. 😊";
+    return { text: "Désolée, une erreur technique est survenue. Réessaie plus tard. 😊", images: [] };
   }
 }
 
@@ -149,6 +164,7 @@ function buildSystemPrompt(client) {
     });
 
     parts.push('\n🚫 RÈGLE ABSOLUE : Tu ne vends QUE les produits listés ci-dessus. Si un client demande un produit qui n\'est pas dans la liste, dis-lui que tu ne l\'as pas. N\'invente RIEN.');
+    parts.push('\n🖼️ IMAGES : Si le client demande à voir un produit, nomme-le précisément (ex: "Chemise Premium") et je t\'enverrai sa photo automatiquement.');
   }
 
   // 3. Règles de collecte
