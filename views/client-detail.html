@@ -3,681 +3,557 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ultra Instinct — Détail client</title>
+  <title>Ultra Instinct — Client</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/assets/style.css" />
+  <style>
+    .p-steps { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+    .p-step { flex:1; text-align:center; padding:0.5rem; border-radius:0.75rem; background:rgba(255,255,255,0.03); color:rgba(255,255,255,0.3); font-size:0.75rem; transition:all 0.3s; }
+    .p-step.active { background:rgba(168,85,247,0.15); color:#c084fc; font-weight:600; }
+    .p-step.done { background:rgba(34,197,94,0.1); color:#22c55e; }
+    .w-panel { display:none; }
+    .w-panel.active { display:block; animation:fadeIn 0.3s ease; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    .pc { display:flex; align-items:center; gap:0.75rem; padding:0.75rem 1rem; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:1rem; cursor:pointer; transition:all 0.2s; color:white; }
+    .pc:hover { background:rgba(255,255,255,0.08); }
+    .pc.selected { border-color:#a855f7; background:rgba(168,85,247,0.15); }
+    .pc input { accent-color:#a855f7; width:1rem; height:1rem; }
+  </style>
 </head>
 <body>
-  <div class="app-layout">
-    <aside class="sidebar">
-      <div class="sidebar-brand"><span class="text-2xl">⚡</span><span class="sidebar-title">Ultra Instinct</span></div>
-      <nav class="sidebar-nav">
-        <a href="/admin/dashboard" class="nav-item"><span>📊</span> Tableau de bord</a>
-        <a href="/admin/clients" class="nav-item"><span>👥</span> Clients</a>
-        <a href="/admin/new-client" class="nav-item"><span>➕</span> Nouveau client</a>
-        <a href="/admin/settings" class="nav-item"><span>⚙️</span> Paramètres</a>
-        <div class="nav-spacer"></div>
-        <button onclick="logout()" class="nav-item text-red-400 hover:text-red-300"><span>🚪</span> Déconnexion</button>
-      </nav>
-    </aside>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand"><span class="text-2xl">⚡</span><span class="sidebar-title">Ultra Instinct</span></div>
+    <nav class="sidebar-nav">
+      <a href="/admin/dashboard" class="nav-item"><span>📊</span> Tableau de bord</a>
+      <a href="/admin/clients" class="nav-item"><span>👥</span> Clients</a>
+      <a href="/admin/new-client" class="nav-item"><span>➕</span> Nouveau client</a>
+      <a href="/admin/settings" class="nav-item"><span>⚙️</span> Paramètres</a>
+      <div class="nav-spacer"></div>
+      <button onclick="logout()" class="nav-item text-red-400 hover:text-red-300"><span>🚪</span> Déconnexion</button>
+    </nav>
+  </aside>
 
-    <main class="main-content">
-      <header class="main-header">
-        <button class="md:hidden text-white text-2xl mr-4" onclick="toggleSidebar()">☰</button>
-        <h1 class="text-2xl font-bold text-white" id="pageTitle">Client</h1>
-        <div class="ml-auto flex items-center gap-3">
-          <span class="text-purple-300/70 text-sm" id="adminName"></span>
-        </div>
-      </header>
+  <main class="main-content">
+    <header class="main-header">
+      <button class="md:hidden text-white text-2xl mr-4" onclick="toggleSidebar()">☰</button>
+      <h1 class="text-2xl font-bold text-white" id="pageTitle">Client</h1>
+      <div class="ml-auto"><span class="text-purple-300/70 text-sm" id="adminName"></span></div>
+    </header>
 
-      <div id="loadingState" class="text-center py-12 text-purple-300/50">Chargement du client...</div>
-      <div id="errorState" class="section-card hidden text-center py-12">
-        <div class="text-5xl mb-4">❌</div>
-        <h3 class="text-xl text-white mb-2">Client introuvable</h3>
-        <a href="/admin/clients" class="btn-primary">← Retour aux clients</a>
-      </div>
+    <div id="loadingState" class="text-center py-12 text-purple-300/50">Chargement...</div>
+    <div id="errorState" class="section-card hidden text-center py-12">
+      <div class="text-5xl mb-4">❌</div>
+      <h3 class="text-xl text-white mb-2">Client introuvable</h3>
+      <a href="/admin/clients" class="btn-primary">← Retour</a>
+    </div>
 
-      <div id="clientContent" class="hidden space-y-6">
+    <div id="clientContent" class="hidden space-y-6">
 
-        <!-- ═══ EN-TÊTE CLIENT ═══ -->
-        <div class="section-card">
-          <div class="flex flex-wrap items-center justify-between gap-4">
-            <div class="flex items-center gap-4">
-              <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-2xl font-bold text-white" id="clientAvatar"></div>
-              <div>
-                <h2 class="text-2xl font-bold text-white" id="clientName">—</h2>
-                <p class="text-purple-300/50 text-sm" id="clientCompany">—</p>
-              </div>
-            </div>
-            <div class="flex items-center gap-3">
-              <span class="text-sm text-purple-300/70">Statut :</span>
-              <button id="toggleBtn" onclick="toggleClient()" class="status-dot cursor-pointer hover:opacity-80 transition px-4 py-1.5">Actif</button>
-              <button onclick="deleteClient()" class="btn-danger text-sm">🗑️ Supprimer</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- ═══ INFORMATIONS GÉNÉRALES ═══ -->
-        <div class="section-card">
-          <h2 class="text-lg font-semibold text-white mb-4">📋 Informations générales</h2>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div><label class="form-label">Nom *</label><input type="text" id="editName" class="form-input" /></div>
-            <div><label class="form-label">Email *</label><input type="email" id="editEmail" class="form-input" /></div>
-            <div><label class="form-label">Téléphone</label><input type="text" id="editPhone" class="form-input" /></div>
-            <div><label class="form-label">Société</label><input type="text" id="editCompany" class="form-input" /></div>
-            <div>
-              <label class="form-label">Type d'activité</label>
-              <select id="editBusinessType" class="form-input">
-                <option value="boutique">🛍️ E-commerce / Boutique</option>
-                <option value="immobilier">🏠 Immobilier</option>
-                <option value="saas">💻 SaaS / Tech</option>
-                <option value="service">🛠️ Service client</option>
-                <option value="restaurant">🍽️ Restaurant / Livraison</option>
-                <option value="autre">Autre</option>
-              </select>
-            </div>
-            <div><label class="form-label">ID Client</label><input type="text" id="clientId" readonly class="form-input opacity-50 cursor-not-allowed" /></div>
-          </div>
-        </div>
-
-        <!-- ═══ PLATEFORMES & CONNEXION ═══ -->
-        <div class="section-card">
-          <h2 class="text-lg font-semibold text-white mb-4">📱 Plateformes & Connexion</h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-            <!-- Colonne gauche : plateformes -->
-            <div>
-              <h3 class="text-sm font-medium text-purple-300 mb-3">Activer sur :</h3>
-              <div class="flex flex-wrap gap-3">
-                <label class="platform-checkbox"><input type="checkbox" id="platMessenger" /> 💬 Messenger</label>
-                <label class="platform-checkbox"><input type="checkbox" id="platInstagram" /> 📸 Instagram</label>
-                <label class="platform-checkbox"><input type="checkbox" id="platWhatsapp" /> 💚 WhatsApp</label>
-                <label class="platform-checkbox"><input type="checkbox" id="platTelegram" /> ✈️ Telegram</label>
-              </div>
-            </div>
-
-            <!-- Colonne droite : capacités -->
-            <div>
-              <h3 class="text-sm font-medium text-purple-300 mb-3">Capacités du bot :</h3>
-              <select id="editCapabilities" class="form-input">
-                <option value="text">📝 Texte uniquement</option>
-                <option value="text_image">📝🖼️ Texte + Images</option>
-                <option value="text_image_audio">📝🖼️🎤 Texte + Images + Audio</option>
-              </select>
-              <p class="text-purple-300/40 text-xs mt-2">
-                🖼️ Images → analyse Gemini &nbsp;|&nbsp; 🎤 Audio → transcription Whisper
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <!-- ═══ API & TOKENS ═══ -->
-        <div class="section-card">
-          <h2 class="text-lg font-semibold text-white mb-4">🔑 Clés API & Tokens Meta</h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-            <div>
-              <label class="form-label">🔐 Clé API OpenCode Zen</label>
-              <div class="flex gap-2">
-                <input type="password" id="editApiKey" class="form-input flex-1 font-mono text-xs" placeholder="opencode_api_key_..." />
-                <button type="button" onclick="toggleField('editApiKey')" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-purple-300 hover:text-white transition text-sm">👁️</button>
-              </div>
-              <p class="text-purple-300/40 text-xs mt-1">Sa clé perso. Laisse vide = clé globale du serveur.</p>
-            </div>
-
-            <div>
-              <label class="form-label">🧠 Modèle</label>
-              <select id="editApiModel" class="form-input">
-                <option value="deepseek-v4-flash-free">⚡ DeepSeek V4 Flash Free</option>
-                <option value="nemotron-3-ultra-free">🧠 Nemotron 3 Ultra Free</option>
-                <option value="big-pickle">🎨 Big Pickle</option>
-                <option value="mimo-v2.5-free">🔮 MiMo V2.5 Free</option>
-                <option value="north-mini-code-free">💻 North Mini Code Free</option>
-              </select>
-            </div>
-
-            <div>
-              <label class="form-label">🔑 Page Access Token (Meta)</label>
-              <div class="flex gap-2">
-                <input type="password" id="editMetaToken" class="form-input flex-1 font-mono text-xs" placeholder="EAAG..." />
-                <button type="button" onclick="toggleField('editMetaToken')" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-purple-300 hover:text-white transition text-sm">👁️</button>
-              </div>
-              <p class="text-purple-300/40 text-xs mt-1">Token de ta Page Facebook (Meta Developer → Messenger → Access Token)</p>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="form-label">🆔 Facebook Page ID</label>
-                <input type="text" id="editPageId" class="form-input font-mono text-xs" placeholder="123456789" />
-              </div>
-              <div>
-                <label class="form-label">🔐 Verify Token</label>
-                <input type="text" id="editVerifyToken" class="form-input font-mono text-xs" placeholder="mon_token_secret" />
-              </div>
-            </div>
-
-            <div>
-              <label class="form-label">🖼️ Clé API Gemini (images)</label>
-              <div class="flex gap-2">
-                <input type="password" id="editGeminiKey" class="form-input flex-1 font-mono text-xs" placeholder="AIzaSy..." />
-                <button type="button" onclick="toggleField('editGeminiKey')" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-purple-300 hover:text-white transition text-sm">👁️</button>
-              </div>
-              <p class="text-purple-300/40 text-xs mt-1">🔴 OBLIGATOIRE pour les images. Laisse vide = clé globale du serveur.</p>
-            </div>
-
-            <div>
-              <label class="form-label">🎤 Clé API Whisper (audio)</label>
-              <div class="flex gap-2">
-                <input type="password" id="editWhisperKey" class="form-input flex-1 font-mono text-xs" placeholder="sk-..." />
-                <button type="button" onclick="toggleField('editWhisperKey')" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-purple-300 hover:text-white transition text-sm">👁️</button>
-              </div>
-              <p class="text-purple-300/40 text-xs mt-1">🔴 OBLIGATOIRE pour l'audio. Laisse vide = clé globale du serveur.</p>
-            </div>
-
-          </div>
-          <div class="mt-4 p-3 bg-white/5 rounded-xl text-xs text-purple-300/60">
-            💡 <strong>Configurer le bot Messenger :</strong> Va sur <span class="text-purple-300">developers.facebook.com</span> → Ton App → Messenger → Webhook.
-            Mets l'URL : <code class="text-green-300 bg-black/30 px-1 rounded">https://ultra-instinct-five.vercel.app/webhook</code> et le Verify Token que tu as défini ci-dessus.
-          </div>
-        </div>
-
-        <!-- ═══ PRIX & LIVRAISON ═══ -->
-        <div class="section-card">
-          <h2 class="text-lg font-semibold text-white mb-4">💰 Prix & Livraison</h2>
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label class="form-label">Prix de base (unité)</label>
-              <input type="number" id="editPrice" class="form-input" placeholder="0" min="0" />
-            </div>
-            <div>
-              <label class="form-label">Devise</label>
-              <select id="editCurrency" class="form-input">
-                <option value="DZD">🇩🇿 DZD (Dinar algérien)</option>
-                <option value="EUR">🇪🇺 EUR (Euro)</option>
-                <option value="USD">🇺🇸 USD (Dollar)</option>
-                <option value="MAD">🇲🇦 MAD (Dirham marocain)</option>
-                <option value="GBP">🇬🇧 GBP (Livre sterling)</option>
-              </select>
-            </div>
-            <div>
-              <label class="form-label">Livraison</label>
-              <select id="editDeliveryFree" class="form-input">
-                <option value="true">✅ Gratuite</option>
-                <option value="false">💰 Payante</option>
-              </select>
-            </div>
-            <div id="deliveryFeeGroup">
-              <label class="form-label">Frais de livraison</label>
-              <input type="number" id="editDeliveryFee" class="form-input" placeholder="0" min="0" />
-            </div>
-          </div>
-          <div class="mt-4">
-            <label class="form-label">Conditions / Notes sur les prix</label>
-            <input type="text" id="editConditions" class="form-input" placeholder="Ex: Livraison gratuite à partir de 5000 DZD, paiement à la livraison..." />
-          </div>
-        </div>
-
-        <!-- ═══ LOGO ═══ -->
-        <div class="section-card">
-          <h2 class="text-lg font-semibold text-white mb-4">🖼️ Logo du bot</h2>
+      <!-- EN-TÊTE -->
+      <div class="section-card">
+        <div class="flex flex-wrap items-center justify-between gap-4">
           <div class="flex items-center gap-4">
-            <div id="logoPreview" class="w-20 h-20 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-3xl overflow-hidden">📷</div>
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-2xl font-bold text-white" id="clientAvatar"></div>
             <div>
-              <input type="file" id="logoInput" accept="image/*" class="text-sm text-purple-300/70 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-purple-600/20 file:text-purple-300 file:text-sm file:cursor-pointer hover:file:bg-purple-600/30 transition" />
-              <p class="text-purple-300/40 text-xs mt-1">PNG, JPG, WEBP — 10MB max</p>
+              <h2 class="text-2xl font-bold text-white" id="clientName">—</h2>
+              <p class="text-purple-300/70 text-sm" id="clientCompany">—</p>
             </div>
           </div>
-        </div>
-
-                <!-- ═══ PRODUITS ═══ -->
-        <div class="section-card">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-semibold text-white">📦 Produits / Services</h2>
-            <button type="button" onclick="showAddProduct()" class="btn-primary text-sm">➕ Ajouter</button>
-          </div>
-          <p class="text-purple-300/70 text-sm mb-4">Ajoute les produits avec leurs images, couleurs, tailles et prix.</p>
-          <div id="productsList" class="space-y-3">
-            <div id="emptyProducts" class="text-center py-8 text-purple-300/40">Aucun produit. Clique sur "Ajouter".</div>
+          <div class="flex items-center gap-3">
+            <button id="toggleBtn" onclick="toggleClient()" class="status-dot cursor-pointer hover:opacity-80 transition px-4 py-1.5">Actif</button>
+            <button onclick="deleteClient()" class="btn-danger text-sm">🗑️</button>
+            <button id="saveBtn" onclick="saveClient()" class="btn-primary text-sm">💾 Enregistrer</button>
+            <div id="saveStatus" class="hidden text-green-400 text-sm">✅</div>
           </div>
         </div>
-
-        <!-- ═══ MODAL AJOUT PRODUIT ═══ -->
-        <div id="productModal" class="fixed inset-0 z-50 flex items-center justify-center hidden">
-          <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeProductModal()"></div>
-          <div class="relative bg-[#1a0a2e] border border-white/10 rounded-2xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-4">
-              <h3 class="text-lg font-semibold text-white" id="modalTitle">➕ Nouveau produit</h3>
-              <button onclick="closeProductModal()" class="text-purple-300/50 hover:text-white text-xl">✕</button>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="md:col-span-2"><label class="form-label">Nom du produit *</label><input type="text" id="prodName" class="form-input" placeholder="Ex: Chemise en coton" /></div>
-              <div class="md:col-span-2"><label class="form-label">Description</label><textarea id="prodDesc" rows="2" class="form-input" placeholder="Description du produit..."></textarea></div>
-              <div><label class="form-label">Prix *</label><input type="number" id="prodPrice" class="form-input" placeholder="4500" min="0" /></div>
-              <div><label class="form-label">Stock</label><input type="number" id="prodStock" class="form-input" placeholder="10" min="0" value="10" /></div>
-              <div class="md:col-span-2">
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <label class="form-label">Couleurs</label>
-                    <div class="flex gap-2">
-                      <input type="text" id="prodColorInput" class="form-input flex-1" placeholder="Blanc" />
-                      <button type="button" onclick="addColor()" class="px-3 py-2 bg-purple-600/20 text-purple-300 rounded-xl text-sm hover:bg-purple-600/30">+</button>
-                    </div>
-                    <div id="colorTags" class="flex gap-1 flex-wrap mt-2"></div>
-                  </div>
-                  <div>
-                    <label class="form-label">Tailles</label>
-                    <div class="flex gap-2">
-                      <input type="text" id="prodSizeInput" class="form-input flex-1" placeholder="M" />
-                      <button type="button" onclick="addSize()" class="px-3 py-2 bg-purple-600/20 text-purple-300 rounded-xl text-sm hover:bg-purple-600/30">+</button>
-                    </div>
-                    <div id="sizeTags" class="flex gap-1 flex-wrap mt-2"></div>
-                  </div>
-                </div>
-              </div>
-              <div><label class="form-label">Image (URL)</label><input type="url" id="prodImage" class="form-input" placeholder="https://exemple.com/image.jpg" />
-                <p class="text-purple-300/40 text-xs mt-1">Lien direct vers une image hébergée</p>
-              </div>
-              <div><label class="form-label">Ou upload image</label>
-                <input type="file" id="prodImageUpload" accept="image/*" class="text-sm text-purple-300/70 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-purple-600/20 file:text-purple-300 file:text-sm file:cursor-pointer" />
-                <div id="prodImagePreview" class="hidden mt-2">
-                  <img id="prodImagePreviewImg" class="w-32 h-32 object-cover rounded-xl border border-white/10" />
-                </div>
-              </div>
-            </div>
-            <input type="hidden" id="editProdId" value="" />
-            <div class="flex justify-end gap-3 mt-6">
-              <button type="button" onclick="closeProductModal()" class="btn-secondary">Annuler</button>
-              <button type="button" onclick="saveProduct()" class="btn-primary" id="saveProductBtn">💾 Ajouter</button>
-            </div>
-          </div>
-        </div>
-
-<!-- ═══ PROMPT ═══ -->
-        <div class="section-card">
-          <div class="flex justify-between items-center mb-4">
-            <h2 class="text-lg font-semibold text-white">🧠 Prompt personnalisé</h2>
-            <button type="button" onclick="resetPrompt()" class="text-xs text-purple-400 hover:text-purple-300 transition">↩️ Réinitialiser</button>
-          </div>
-          <textarea id="editPrompt" rows="14" class="form-input font-mono text-sm w-full"></textarea>
-          <p class="text-purple-300/40 text-xs mt-2">Le prompt système injecté dans le LLM à chaque conversation. Utilise les variables : prix, livraison, catalogue sont automatiquement ajoutés.</p>
-        </div>
-
-        <!-- ═══ NOTES ═══ -->
-        <div class="section-card">
-          <h2 class="text-lg font-semibold text-white mb-4">📝 Notes internes</h2>
-          <textarea id="editNotes" rows="3" class="form-input w-full" placeholder="Infos supplémentaires pour toi (le client ne voit pas ça)..."></textarea>
-        </div>
-
-        <!-- ═══ STATISTIQUES ═══ -->
-        <div class="section-card">
-          <h2 class="text-lg font-semibold text-white mb-4">📊 Statistiques</h2>
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div class="text-center p-4 bg-white/5 rounded-xl">
-              <div class="text-2xl font-bold text-white" id="statMessages">0</div>
-              <div class="text-xs text-purple-300/50">Messages traités</div>
-            </div>
-            <div class="text-center p-4 bg-white/5 rounded-xl">
-              <div class="text-2xl font-bold text-white" id="statOrders">0</div>
-              <div class="text-xs text-purple-300/50">Commandes</div>
-            </div>
-            <div class="text-center p-4 bg-white/5 rounded-xl">
-              <div class="text-2xl font-bold text-white" id="statCreated">—</div>
-              <div class="text-xs text-purple-300/50">Créé le</div>
-            </div>
-            <div class="text-center p-4 bg-white/5 rounded-xl">
-              <div class="text-2xl font-bold text-white" id="statUpdated">—</div>
-              <div class="text-xs text-purple-300/50">Dernière modif.</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ═══ BOUTONS ═══ -->
-        <div class="flex gap-3 justify-end sticky-bottom">
-          <a href="/admin/clients" class="btn-secondary">← Liste clients</a>
-          <button id="saveBtn" onclick="saveClient()" class="btn-primary">💾 Enregistrer</button>
-          <div id="saveStatus" class="hidden text-green-400 text-sm self-center">✅ Enregistré !</div>
-        </div>
-
       </div>
-    </main>
+
+      <!-- INFOS & CONNEXION (compact) -->
+      <div class="section-card">
+        <h2 class="text-lg font-semibold text-white mb-4">📋 Infos & Connexion</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div><label class="form-label">Nom</label><input type="text" id="editName" class="form-input" /></div>
+          <div><label class="form-label">Email</label><input type="email" id="editEmail" class="form-input" /></div>
+          <div><label class="form-label">Téléphone</label><input type="text" id="editPhone" class="form-input" /></div>
+          <div><label class="form-label">Société</label><input type="text" id="editCompany" class="form-input" /></div>
+          <div>
+            <label class="form-label">Activité</label>
+            <select id="editBusinessType" class="form-input">
+              <option value="boutique">🛍️ E-commerce</option>
+              <option value="immobilier">🏠 Immobilier</option>
+              <option value="saas">💻 SaaS</option>
+              <option value="service">🛠️ Service</option>
+              <option value="restaurant">🍽️ Restaurant</option>
+              <option value="autre">Autre</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Activer sur</label>
+            <div class="flex gap-2 mt-1 flex-wrap">
+              <label class="text-sm cursor-pointer"><input type="checkbox" id="platMessenger" class="accent-purple-500" /> 💬</label>
+              <label class="text-sm cursor-pointer"><input type="checkbox" id="platInstagram" class="accent-purple-500" /> 📸</label>
+              <label class="text-sm cursor-pointer"><input type="checkbox" id="platWhatsapp" class="accent-purple-500" /> 💚</label>
+              <label class="text-sm cursor-pointer"><input type="checkbox" id="platTelegram" class="accent-purple-500" /> ✈️</label>
+            </div>
+          </div>
+        </div>
+
+        <hr class="border-white/5 my-4" />
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="form-label">Capacités</label>
+            <select id="editCapabilities" class="form-input text-sm">
+              <option value="text">📝 Texte</option>
+              <option value="text_image">📝🖼️ + Images</option>
+              <option value="text_image_audio">📝🖼️🎤 + Audio</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Modèle LLM</label>
+            <select id="editApiModel" class="form-input text-sm">
+              <option value="deepseek-v4-flash-free">⚡ DeepSeek V4 Flash Free</option>
+              <option value="nemotron-3-ultra-free">🧠 Nemotron 3 Ultra Free</option>
+              <option value="big-pickle">🎨 Big Pickle</option>
+              <option value="mimo-v2.5-free">🔮 MiMo V2.5 Free</option>
+              <option value="north-mini-code-free">💻 North Mini Code Free</option>
+            </select>
+          </div>
+          <div><label class="form-label">🔐 OpenCode Zen</label><input type="text" id="editApiKey" class="form-input text-xs font-mono" placeholder="opencode_key..." /></div>
+          <div class="grid grid-cols-2 gap-2">
+            <div><label class="form-label">🖼️ Gemini</label><input type="text" id="editGeminiKey" class="form-input text-xs font-mono" placeholder="AIzaSy..." /></div>
+            <div><label class="form-label">🎤 Whisper</label><input type="text" id="editWhisperKey" class="form-input text-xs font-mono" placeholder="sk-..." /></div>
+          </div>
+          <div><label class="form-label">🔑 Meta Token</label><input type="text" id="editMetaToken" class="form-input text-xs font-mono" placeholder="EAAG..." /></div>
+          <div class="grid grid-cols-2 gap-2">
+            <div><label class="form-label">Page ID</label><input type="text" id="editPageId" class="form-input text-xs" placeholder="123456789" /></div>
+            <div><label class="form-label">Verify Token</label><input type="text" id="editVerifyToken" class="form-input text-xs" placeholder="mon_token" /></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PROMPT DU CLIENT (cerveau de l'agent) -->
+      <div class="section-card border-purple-500/20">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold text-white">🧠 Prompt & Configuration Agent AI</h2>
+          <button type="button" onclick="resetPrompt()" class="text-xs text-purple-400 hover:text-purple-300">↩️ Réinitialiser</button>
+        </div>
+        <p class="text-purple-300/60 text-sm mb-3">
+          Ce prompt définit la personnalité, le ton et les règles de l'agent IA.
+          Il connaît automatiquement tous les produits que tu ajoutes ci-dessous.
+        </p>
+        <textarea id="editPrompt" rows="10" class="form-input font-mono text-sm w-full"></textarea>
+      </div>
+
+      <!-- PRODUITS -->
+      <div class="section-card">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-white">📦 Produits</h2>
+          <button onclick="openProductWizard()" class="btn-primary text-sm">➕ Nouveau produit</button>
+        </div>
+        <p class="text-purple-300/60 text-sm mb-4">
+          Les produits sont automatiquement connus par l'agent AI. Ajoute-les ici.
+        </p>
+        <div id="productsList" class="space-y-3">
+          <div class="text-center py-8 text-purple-300/40">Aucun produit. Clique sur "Nouveau produit".</div>
+        </div>
+      </div>
+
+      <!-- STATS -->
+      <div class="section-card">
+        <h2 class="text-lg font-semibold text-white mb-4">📊 Statistiques</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="text-center p-4 bg-white/5 rounded-xl">
+            <div class="text-2xl font-bold text-white" id="statMessages">0</div>
+            <div class="text-xs text-purple-300/70">Messages traités</div>
+          </div>
+          <div class="text-center p-4 bg-white/5 rounded-xl">
+            <div class="text-2xl font-bold text-white" id="statOrders">0</div>
+            <div class="text-xs text-purple-300/70">Commandes</div>
+          </div>
+          <div class="text-center p-4 bg-white/5 rounded-xl">
+            <div class="text-2xl font-bold text-white" id="statCreated">—</div>
+            <div class="text-xs text-purple-300/70">Créé le</div>
+          </div>
+          <div class="text-center p-4 bg-white/5 rounded-xl">
+            <div class="text-2xl font-bold text-white" id="statUpdated">—</div>
+            <div class="text-xs text-purple-300/70">Modifié le</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="text-right pb-4">
+        <a href="/admin/clients" class="btn-secondary text-sm">← Liste clients</a>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- MODAL CREATION PRODUIT (WIZARD) -->
+<div id="productModal" class="fixed inset-0 z-50 flex items-center justify-center hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeProductModal()"></div>
+  <div class="relative bg-[#1a0a2e] border border-white/10 rounded-2xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto shadow-2xl">
+
+    <!-- Progress -->
+    <div class="p-steps">
+      <div class="p-step active" data-pstep="0">1. Infos</div>
+      <div class="p-step" data-pstep="1">2. Image & Prix</div>
+      <div class="p-step" data-pstep="2">3. Variantes</div>
+    </div>
+
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-semibold text-white" id="modalTitle">➕ Nouveau produit</h3>
+      <button onclick="closeProductModal()" class="text-purple-300/50 hover:text-white text-xl">✕</button>
+    </div>
+
+    <!-- Step 1 : Infos -->
+    <div class="w-panel active" data-pw="0">
+      <div class="space-y-4">
+        <div><label class="form-label">Nom du produit *</label><input type="text" id="prodName" class="form-input" placeholder="Ex: Chemise en coton premium" /></div>
+        <div><label class="form-label">Description *</label>
+          <textarea id="prodDesc" rows="4" class="form-input" placeholder="Décris le produit : matière, style, occasions, particularités... Cette description est utilisée par l'agent AI pour répondre aux clients."></textarea>
+        </div>
+      </div>
+      <div class="flex justify-between mt-6">
+        <button onclick="closeProductModal()" class="btn-secondary">Annuler</button>
+        <button onclick="productStep(1)" class="btn-primary">Continuer →</button>
+      </div>
+    </div>
+
+    <!-- Step 2 : Image & Prix -->
+    <div class="w-panel" data-pw="1">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="form-label">Image du produit</label>
+          <div class="flex gap-2 items-start">
+            <input type="url" id="prodImage" class="form-input flex-1 text-xs" placeholder="https://..." />
+            <label class="btn-secondary text-xs cursor-pointer">📁<input type="file" id="prodImageUpload" accept="image/*" class="hidden" /></label>
+          </div>
+          <div id="prodImagePreview" class="hidden mt-2">
+            <img id="prodImagePreviewImg" class="w-28 h-28 object-cover rounded-xl border border-white/10" />
+          </div>
+        </div>
+        <div class="space-y-3">
+          <div><label class="form-label">Prix *</label><input type="number" id="prodPrice" class="form-input" placeholder="4500" min="0" /></div>
+          <div><label class="form-label">Frais de livraison</label><input type="number" id="prodDelivery" class="form-input" placeholder="500" min="0" /></div>
+          <div><label class="form-label">Stock</label><input type="number" id="prodStock" class="form-input" placeholder="10" min="0" value="10" /></div>
+        </div>
+      </div>
+      <div class="flex justify-between mt-6">
+        <button onclick="productStep(0)" class="btn-secondary">← Retour</button>
+        <button onclick="productStep(2)" class="btn-primary">Continuer →</button>
+      </div>
+    </div>
+
+    <!-- Step 3 : Variantes -->
+    <div class="w-panel" data-pw="2">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="form-label">Couleurs disponibles</label>
+          <div class="flex gap-2 mb-2">
+            <input type="text" id="prodColorInput" class="form-input flex-1 text-sm" placeholder="Ex: Blanc" />
+            <button onclick="addColor()" class="px-3 py-2 bg-purple-600/20 text-purple-300 rounded-xl text-sm hover:bg-purple-600/30">+</button>
+          </div>
+          <div id="colorTags" class="flex gap-1 flex-wrap min-h-[28px]"></div>
+        </div>
+        <div>
+          <label class="form-label">Tailles disponibles</label>
+          <div class="flex gap-2 mb-2">
+            <input type="text" id="prodSizeInput" class="form-input flex-1 text-sm" placeholder="Ex: M" />
+            <button onclick="addSize()" class="px-3 py-2 bg-purple-600/20 text-purple-300 rounded-xl text-sm hover:bg-purple-600/30">+</button>
+          </div>
+          <div id="sizeTags" class="flex gap-1 flex-wrap min-h-[28px]"></div>
+        </div>
+      </div>
+      <input type="hidden" id="editProdId" />
+      <div class="flex justify-between mt-6">
+        <button onclick="productStep(1)" class="btn-secondary">← Retour</button>
+        <button onclick="saveProduct()" class="btn-primary" id="saveProductBtn">💾 Ajouter le produit</button>
+      </div>
+    </div>
+
   </div>
+</div>
 
-  <script src="/assets/app.js"></script>
-  <script>
-    let currentClient = null;
-    const clientId = new URLSearchParams(window.location.search).get('id');
+<script src="/assets/app.js"></script>
+<script>
+let currentClient = null;
+const clientId = new URLSearchParams(window.location.search).get('id');
+if (!clientId) { document.getElementById('loadingState').classList.add('hidden'); document.getElementById('errorState').classList.remove('hidden'); }
+else { loadClient(); }
 
-    if (!clientId) { document.getElementById('loadingState').classList.add('hidden'); document.getElementById('errorState').classList.remove('hidden'); }
-    else { loadClient(); }
+async function loadClient() {
+  try {
+    const client = await api(`/api/clients/${clientId}`);
+    currentClient = client;
+    try { renderClient(client); } catch(e) { console.error(e); showError(e.message); }
+  } catch(err) {
+    document.getElementById('loadingState').classList.add('hidden');
+    document.getElementById('errorState').classList.remove('hidden');
+  }
+}
 
-    async function loadClient() {
-      try { const client = await api(`/api/clients/${clientId}`); currentClient = client; try { renderClient(client); } catch(e) { console.error(e); showError(e.message); } }
-      catch (err) { document.getElementById('loadingState').classList.add('hidden'); document.getElementById('errorState').classList.remove('hidden'); }
-    }
+function renderClient(c) {
+  document.getElementById('loadingState').classList.add('hidden');
+  document.getElementById('clientContent').classList.remove('hidden');
+  document.getElementById('pageTitle').textContent = `✏️ ${c.name}`;
+  document.getElementById('clientName').textContent = c.name;
+  document.getElementById('clientCompany').textContent = c.company || '—';
+  document.getElementById('clientAvatar').textContent = c.name.charAt(0).toUpperCase();
 
-    function renderClient(c) {
-      document.getElementById('loadingState').classList.add('hidden');
-      document.getElementById('clientContent').classList.remove('hidden');
-      document.getElementById('pageTitle').textContent = `✏️ ${c.name}`;
-      document.getElementById('clientName').textContent = c.name;
-      document.getElementById('clientCompany').textContent = c.company || '—';
-      document.getElementById('clientAvatar').textContent = c.name.charAt(0).toUpperCase();
-      document.getElementById('clientId').value = c.id;
+  document.getElementById('editName').value = c.name;
+  document.getElementById('editEmail').value = c.email;
+  document.getElementById('editPhone').value = c.phone || '';
+  document.getElementById('editCompany').value = c.company || '';
+  document.getElementById('editBusinessType').value = c.businessType || 'boutique';
+  document.getElementById('editPrompt').value = c.prompt || '';
 
-      document.getElementById('editName').value = c.name;
-      document.getElementById('editEmail').value = c.email;
-      document.getElementById('editPhone').value = c.phone || '';
-      document.getElementById('editCompany').value = c.company || '';
-      document.getElementById('editBusinessType').value = c.businessType || 'boutique';
-      document.getElementById('editPrompt').value = c.prompt || '';
-      document.getElementById('editNotes').value = c.notes || '';
+  document.getElementById('platMessenger').checked = c.platforms?.messenger || false;
+  document.getElementById('platInstagram').checked = c.platforms?.instagram || false;
+  document.getElementById('platWhatsapp').checked = c.platforms?.whatsapp || false;
+  document.getElementById('platTelegram').checked = c.platforms?.telegram || false;
 
-      document.getElementById('platMessenger').checked = c.platforms?.messenger || false;
-      document.getElementById('platInstagram').checked = c.platforms?.instagram || false;
-      document.getElementById('platWhatsapp').checked = c.platforms?.whatsapp || false;
-      document.getElementById('platTelegram').checked = c.platforms?.telegram || false;
+  document.getElementById('editCapabilities').value = c.bot_capabilities || 'text';
+  document.getElementById('editApiKey').value = c.api_key || '';
+  document.getElementById('editApiModel').value = c.api_model || 'deepseek-v4-flash-free';
+  document.getElementById('editMetaToken').value = c.meta_token || '';
+  document.getElementById('editPageId').value = c.meta_page_id || '';
+  document.getElementById('editVerifyToken').value = c.meta_verify_token || '';
+  document.getElementById('editGeminiKey').value = c.gemini_api_key || '';
+  document.getElementById('editWhisperKey').value = c.whisper_api_key || '';
 
-      document.getElementById('editCapabilities').value = c.bot_capabilities || 'text';
-      document.getElementById('editApiKey').value = c.api_key || '';
-      document.getElementById('editApiModel').value = c.api_model || 'deepseek-v4-flash-free';
-      document.getElementById('editMetaToken').value = c.meta_token || '';
-      document.getElementById('editPageId').value = c.meta_page_id || '';
-      document.getElementById('editVerifyToken').value = c.meta_verify_token || '';
-      document.getElementById('editGeminiKey').value = c.gemini_api_key || '';
-      document.getElementById('editWhisperKey').value = c.whisper_api_key || '';
+  const toggleBtn = document.getElementById('toggleBtn');
+  toggleBtn.textContent = c.active ? '🟢 Actif' : '🔴 Inactif';
+  toggleBtn.className = `status-dot cursor-pointer hover:opacity-80 transition px-4 py-1.5 ${c.active ? 'active' : 'inactive'}`;
 
-      // Pricing
-      const p = c.pricing || {};
-      document.getElementById('editPrice').value = p.price || '';
-      document.getElementById('editCurrency').value = p.currency || 'DZD';
-      document.getElementById('editDeliveryFree').value = p.delivery_free ? 'true' : 'false';
-      document.getElementById('editDeliveryFee').value = p.delivery_fee || '';
-      document.getElementById('editConditions').value = p.conditions || '';
-      toggleDeliveryFee();
+  renderProducts(c.catalog || []);
 
-      // Toggle
-      const toggleBtn = document.getElementById('toggleBtn');
-      toggleBtn.textContent = c.active ? '🟢 Actif' : '🔴 Inactif';
-      toggleBtn.className = `status-dot cursor-pointer hover:opacity-80 transition px-4 py-1.5 ${c.active ? 'active' : 'inactive'}`;
+  document.getElementById('statMessages').textContent = c.stats?.messages_processed?.toLocaleString() || '0';
+  document.getElementById('statOrders').textContent = c.stats?.orders_completed || '0';
+  document.getElementById('statCreated').textContent = formatDate(c.created_at || c.createdAt);
+  document.getElementById('statUpdated').textContent = formatDate(c.updated_at || c.updatedAt);
+}
 
-      // Logo
-      document.getElementById('logoPreview').innerHTML = c.logo ? `<img src="${c.logo}" class="w-full h-full object-cover rounded-xl" />` : '📷';
+async function toggleClient() {
+  try { const d = await api(`/api/clients/${clientId}/toggle`, 'PUT'); currentClient.active = d.active; renderClient(currentClient); }
+  catch(e) { showError('Erreur toggle'); }
+}
 
-      // Catalogue
-      if (c.catalog && c.catalog.length > 0) {
-        document.getElementById('catalogInfo').textContent = `✅ ${c.catalog.length} produits — ${c.catalog_filename || ''}`;
-        document.getElementById('catalogPreview').classList.remove('hidden');
-        document.getElementById('catalogJson').textContent = JSON.stringify(c.catalog, null, 2);
-      } else {
-        document.getElementById('catalogInfo').textContent = '📭 Aucun catalogue';
-        document.getElementById('catalogPreview').classList.add('hidden');
-      }
-      // Produits
-      renderProducts(c.catalog || []);
-
-
-      // Stats
-      document.getElementById('statMessages').textContent = c.stats?.messages_processed?.toLocaleString() || '0';
-      document.getElementById('statOrders').textContent = c.stats?.orders_completed || '0';
-      document.getElementById('statCreated').textContent = formatDate(c.created_at || c.createdAt);
-      document.getElementById('statUpdated').textContent = formatDate(c.updated_at || c.updatedAt);
-    }
-
-    // ═══ PRICING ═══
-    document.getElementById('editDeliveryFree').addEventListener('change', toggleDeliveryFee);
-    function toggleDeliveryFee() {
-      const free = document.getElementById('editDeliveryFree').value === 'true';
-      document.getElementById('deliveryFeeGroup').style.display = free ? 'none' : 'block';
-    }
-
-    // ═══ TOGGLE FIELD VISIBILITY ═══
-    
-    // ═══ GESTIONNAIRE DE PRODUITS ═══
-    let productColors = [];
-    let productSizes = [];
-    let editingProductId = null;
-
-    function showAddProduct() {
-      editingProductId = null;
-      document.getElementById('modalTitle').textContent = '➕ Nouveau produit';
-      document.getElementById('saveProductBtn').textContent = '💾 Ajouter';
-      document.getElementById('prodName').value = '';
-      document.getElementById('prodDesc').value = '';
-      document.getElementById('prodPrice').value = '';
-      document.getElementById('prodStock').value = '10';
-      document.getElementById('prodImage').value = '';
-      document.getElementById('productModal').classList.remove('hidden');
-      productColors = [];
-      productSizes = [];
-      renderTags();
-    }
-
-    function closeProductModal() {
-      document.getElementById('productModal').classList.add('hidden');
-    }
-
-    function addColor() {
-      const input = document.getElementById('prodColorInput');
-      const val = input.value.trim();
-      if (val && !productColors.includes(val)) { productColors.push(val); input.value = ''; renderTags(); }
-    }
-    function addSize() {
-      const input = document.getElementById('prodSizeInput');
-      const val = input.value.trim().toUpperCase();
-      if (val && !productSizes.includes(val)) { productSizes.push(val); input.value = ''; renderTags(); }
-    }
-    function removeColor(c) { productColors = productColors.filter(x => x !== c); renderTags(); }
-    function removeSize(s) { productSizes = productSizes.filter(x => x !== s); renderTags(); }
-
-    function renderTags() {
-      document.getElementById('colorTags').innerHTML = productColors.map(c =>
-        '<span class="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-600/20 text-purple-300 rounded-lg text-xs">' + c + ' <button onclick="removeColor(\'' + c + '\')" class="text-purple-300/50 hover:text-red-400">✕</button></span>'
-      ).join('');
-      document.getElementById('sizeTags').innerHTML = productSizes.map(s =>
-        '<span class="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-600/20 text-blue-300 rounded-lg text-xs">' + s + ' <button onclick="removeSize(\'' + s + '\')" class="text-purple-300/50 hover:text-red-400">✕</button></span>'
-      ).join('');
-    }
-
-    document.getElementById('prodColorInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addColor(); } });
-    document.getElementById('prodSizeInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addSize(); } });
-
-    document.getElementById('prodImageUpload').addEventListener('change', async (e) => {
-      const file = e.target.files[0]; if (!file) return;
-      try {
-        const formData = new FormData(); formData.append('image', file);
-        const data = await apiUpload('/api/upload/product-image', formData);
-        document.getElementById('prodImage').value = data.url;
-        document.getElementById('prodImagePreview').classList.remove('hidden');
-        document.getElementById('prodImagePreviewImg').src = data.url;
-        showSuccess('✅ Image uploadée !');
-      } catch(err) { showError('Erreur upload: ' + err.message); }
+async function saveClient() {
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true; btn.textContent = '⏳...';
+  try {
+    await api(`/api/clients/${clientId}`, 'PUT', {
+      name: document.getElementById('editName').value,
+      email: document.getElementById('editEmail').value,
+      phone: document.getElementById('editPhone').value,
+      company: document.getElementById('editCompany').value,
+      businessType: document.getElementById('editBusinessType').value,
+      platforms: {
+        messenger: document.getElementById('platMessenger').checked,
+        instagram: document.getElementById('platInstagram').checked,
+        whatsapp: document.getElementById('platWhatsapp').checked,
+        telegram: document.getElementById('platTelegram').checked,
+      },
+      bot_capabilities: document.getElementById('editCapabilities').value,
+      prompt: document.getElementById('editPrompt').value,
+      api_key: document.getElementById('editApiKey').value,
+      api_model: document.getElementById('editApiModel').value,
+      gemini_api_key: document.getElementById('editGeminiKey').value,
+      whisper_api_key: document.getElementById('editWhisperKey').value,
+      meta_token: document.getElementById('editMetaToken').value,
+      meta_page_id: document.getElementById('editPageId').value,
+      meta_verify_token: document.getElementById('editVerifyToken').value,
+      catalog: currentClient?.catalog || []
     });
+    document.getElementById('saveStatus').classList.remove('hidden');
+    setTimeout(() => document.getElementById('saveStatus').classList.add('hidden'), 3000);
+    showSuccess('✅ Enregistré');
+  } catch(e) { showError('Erreur enregistrement'); }
+  finally { btn.disabled = false; btn.textContent = '💾 Enregistrer'; }
+}
 
-    document.getElementById('prodImage').addEventListener('input', function() {
-      if (this.value) {
-        document.getElementById('prodImagePreview').classList.remove('hidden');
-        document.getElementById('prodImagePreviewImg').src = this.value;
-      }
-    });
+async function deleteClient() {
+  if (!confirm('⚠️ Supprimer définitivement ?')) return;
+  try { await api(`/api/clients/${clientId}`, 'DELETE'); showSuccess('Supprimé'); setTimeout(() => window.location.href='/admin/clients', 1000); }
+  catch(e) { showError('Erreur suppression'); }
+}
 
-    function saveProduct() {
-      const name = document.getElementById('prodName').value.trim();
-      const price = document.getElementById('prodPrice').value;
-      if (!name || !price) { showError('Nom et prix requis.'); return; }
-      const product = {
-        id: editingProductId || 'prod_' + Date.now(),
-        name,
-        description: document.getElementById('prodDesc').value.trim(),
-        price: parseFloat(price),
-        stock: parseInt(document.getElementById('prodStock').value) || 0,
-        colors: productColors,
-        sizes: productSizes,
-        image: document.getElementById('prodImage').value.trim(),
-        currency: document.getElementById('editCurrency').value || 'DZD',
-      };
-      let products = currentClient.catalog || [];
-      if (editingProductId) {
-        const idx = products.findIndex(p => p.id === editingProductId);
-        if (idx >= 0) products[idx] = product;
-      } else {
-        products.push(product);
-      }
-      currentClient.catalog = products;
-      renderProducts(products);
-      closeProductModal();
-      showSuccess(editingProductId ? '✅ Produit modifié' : '✅ Produit ajouté');
-    }
-
-    function editProduct(id) {
-      const product = (currentClient.catalog || []).find(p => p.id === id);
-      if (!product) return;
-      editingProductId = id;
-      document.getElementById('modalTitle').textContent = '✏️ Modifier le produit';
-      document.getElementById('saveProductBtn').textContent = '💾 Enregistrer';
-      document.getElementById('prodName').value = product.name;
-      document.getElementById('prodDesc').value = product.description || '';
-      document.getElementById('prodPrice').value = product.price || '';
-      document.getElementById('prodStock').value = product.stock || 0;
-      document.getElementById('prodImage').value = product.image || '';
-      productColors = product.colors || [];
-      productSizes = product.sizes || [];
-      renderTags();
-      if (product.image) {
-        document.getElementById('prodImagePreview').classList.remove('hidden');
-        document.getElementById('prodImagePreviewImg').src = product.image;
-      }
-      document.getElementById('productModal').classList.remove('hidden');
-    }
-
-    function deleteProduct(id) {
-      if (!confirm('Supprimer ce produit ?')) return;
-      currentClient.catalog = (currentClient.catalog || []).filter(p => p.id !== id);
-      renderProducts(currentClient.catalog);
-      showSuccess('De produit supprimé');
-    }
-
-    function renderProducts(products) {
-      const list = document.getElementById('productsList');
-      if (!products || products.length === 0) {
-        list.innerHTML = '<div class="text-center py-8 text-purple-300/40">Aucun produit. Clique sur "Ajouter".</div>';
-        return;
-      }
-      list.innerHTML = products.map((p, i) =>
-        '<div class="flex gap-4 p-4 bg-white/5 rounded-xl border border-white/5 hover:border-purple-500/30 transition group">' +
-        (p.image ? '<div class="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-white/5"><img src="' + p.image + '" class="w-full h-full object-cover" onerror="this.style.display=null" /></div>' : '') +
-        '<div class="flex-1 min-w-0">' +
-          '<div class="flex items-start justify-between">' +
-            '<h4 class="text-white font-medium truncate">' + p.name + '</h4>' +
-            '<span class="text-purple-300 font-semibold whitespace-nowrap ml-2">' + p.price + ' ' + (p.currency || 'DZD') + '</span>' +
-          '</div>' +
-          (p.description ? '<p class="text-purple-300/60 text-xs mt-1">' + p.description + '</p>' : '') +
-          '<div class="flex flex-wrap gap-1 mt-2">' +
-          (p.colors || []).map(c => '<span class="px-2 py-0.5 bg-purple-600/15 text-purple-300 rounded text-xs">' + c + '</span>').join('') +
-          (p.sizes || []).map(s => '<span class="px-2 py-0.5 bg-blue-600/15 text-blue-300 rounded text-xs">' + s + '</span>').join('') +
-          (p.stock ? '<span class="px-2 py-0.5 bg-green-600/15 text-green-300 rounded text-xs">' + p.stock + ' stock</span>' : '') +
-          '</div>' +
-        '</div>' +
-        '<div class="flex flex-col gap-1 justify-center opacity-0 group-hover:opacity-100 transition">' +
-          '<button onclick="editProduct(\'' + p.id + '\')" class="text-purple-400 hover:text-purple-300 text-sm">✏️</button>' +
-          '<button onclick="deleteProduct(\'' + p.id + '\')" class="text-red-400 hover:text-red-300 text-sm">🗑️</button>' +
-        '</div>' +
-        '</div>'
-      ).join('');
-    }
-function toggleField(id) {
-      const input = document.getElementById(id);
-      input.type = input.type === 'password' ? 'text' : 'password';
-    }
-
-    // ═══ TOGGLE CLIENT ═══
-    async function toggleClient() {
-      try { const data = await api(`/api/clients/${clientId}/toggle`, 'PUT'); currentClient.active = data.active; renderClient(currentClient); }
-      catch (err) { showError('Erreur toggle statut'); }
-    }
-
-    // ═══ SAVE ═══
-    async function saveClient() {
-      const btn = document.getElementById('saveBtn');
-      btn.disabled = true;
-      btn.textContent = '💾 Enregistrement...';
-      try {
-        const updated = await api(`/api/clients/${clientId}`, 'PUT', {
-          name: document.getElementById('editName').value,
-          email: document.getElementById('editEmail').value,
-          phone: document.getElementById('editPhone').value,
-          company: document.getElementById('editCompany').value,
-          businessType: document.getElementById('editBusinessType').value,
-          platforms: {
-            messenger: document.getElementById('platMessenger').checked,
-            instagram: document.getElementById('platInstagram').checked,
-            whatsapp: document.getElementById('platWhatsapp').checked,
-            telegram: document.getElementById('platTelegram').checked,
-          },
-          bot_capabilities: document.getElementById('editCapabilities').value,
-          prompt: document.getElementById('editPrompt').value,
-          notes: document.getElementById('editNotes').value,
-          api_key: document.getElementById('editApiKey').value,
-          api_model: document.getElementById('editApiModel').value,
-          gemini_api_key: document.getElementById('editGeminiKey').value,
-          whisper_api_key: document.getElementById('editWhisperKey').value,
-          meta_token: document.getElementById('editMetaToken').value,
-          meta_page_id: document.getElementById('editPageId').value,
-          meta_verify_token: document.getElementById('editVerifyToken').value,
-          pricing: {
-            price: parseFloat(document.getElementById('editPrice').value) || 0,
-            currency: document.getElementById('editCurrency').value,
-            delivery_free: document.getElementById('editDeliveryFree').value === 'true',
-            delivery_fee: parseFloat(document.getElementById('editDeliveryFee').value) || 0,
-            conditions: document.getElementById('editConditions').value,
-          }
-        });
-        currentClient = updated;
-        renderClient(updated);
-        document.getElementById('saveStatus').classList.remove('hidden');
-        setTimeout(() => document.getElementById('saveStatus').classList.add('hidden'), 3000);
-      } catch (err) { showError('Erreur enregistrement'); }
-      finally { btn.disabled = false; btn.textContent = '💾 Enregistrer'; }
-    }
-
-    // ═══ RESET PROMPT ═══
-    function resetPrompt() {
-      const company = document.getElementById('editCompany').value || 'Mon Client';
-      document.getElementById('editPrompt').value =
+function resetPrompt() {
+  const company = document.getElementById('editCompany').value || 'Mon Client';
+  document.getElementById('editPrompt').value =
 `Tu es un assistant commercial chaleureux et professionnel pour ${company}.
 
-🌍 LANGUES : Détecte automatiquement la langue du client (français, arabe, darija).
+🌍 LANGUES : Détecte automatiquement la langue du client (français, arabe, darija). Réponds dans la même langue.
 
 💬 SOIS : chaleureux(se), professionnel(le), empathique.
 
-📦 PRODUITS : Présente uniquement les produits disponibles avec leurs prix.
+📦 PRODUITS : Tu as accès au catalogue complet. Présente les produits disponibles avec leurs prix, couleurs et tailles. Réponds naturellement.
 
-📋 COLLECTE : Demande les infos UNE PAR UNE.
+📋 COMMANDE : Demande les infos UNE PAR UNE (nom, téléphone, adresse). Ne demande JAMAIS tout d'un coup.
 
-✅ VALIDATION : Une fois tout confirmé, remercie chaleureusement.`;
-    }
+✅ VALIDATION : Une fois tout confirmé, remercie le client chaleureusement.`;
+}
 
-    // ═══ DELETE ═══
-    async function deleteClient() {
-      if (!confirm('⚠️ Supprimer définitivement ce client ?')) return;
-      try { await api(`/api/clients/${clientId}`, 'DELETE'); showSuccess('Client supprimé'); setTimeout(() => window.location.href = '/admin/clients', 1000); }
-      catch (err) { showError('Erreur suppression'); }
-    }
+// ═══ PRODUITS ═══
 
-    // ═══ UPLOAD LOGO ═══
-    document.getElementById('logoInput').addEventListener('change', async (e) => {
-      const file = e.target.files[0]; if (!file) return;
-      const formData = new FormData(); formData.append('logo', file); formData.append('clientId', clientId);
-      try { const data = await apiUpload('/api/upload/logo', formData); if (currentClient) { currentClient.logo = data.url; renderClient(currentClient); } showSuccess('✅ Logo uploadé !'); }
-      catch (err) { showError('Erreur upload logo'); }
-    });
+function renderProducts(products) {
+  const list = document.getElementById('productsList');
+  if (!products || products.length === 0) {
+    list.innerHTML = '<div class="text-center py-8 text-purple-300/40">Aucun produit. Clique sur "Nouveau produit".</div>';
+    return;
+  }
+  list.innerHTML = products.map(p =>
+    '<div class="flex gap-4 p-4 bg-white/5 rounded-xl border border-white/5 hover:border-purple-500/30 transition group">' +
+    (p.image ? '<div class="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0"><img src="' + p.image + '" class="w-full h-full object-cover" onerror="this.style.display=\'none\'" /></div>' : '') +
+    '<div class="flex-1 min-w-0">' +
+      '<div class="flex items-start justify-between gap-3">' +
+        '<h4 class="text-white font-semibold">' + p.name + '</h4>' +
+        '<div class="flex gap-1 flex-shrink-0">' +
+          '<button onclick="editProduct(\'' + p.id + '\')" class="text-purple-400 hover:text-purple-300 text-xs" title="Modifier">✏️</button>' +
+          '<button onclick="deleteProduct(\'' + p.id + '\')" class="text-red-400 hover:text-red-300 text-xs" title="Supprimer">🗑️</button>' +
+        '</div>' +
+      '</div>' +
+      (p.description ? '<p class="text-purple-300/60 text-xs mt-1">' + p.description + '</p>' : '') +
+      '<div class="flex flex-wrap gap-1 mt-2">' +
+      '<span class="px-2 py-0.5 bg-purple-600/20 text-purple-300 rounded text-xs font-semibold">' + p.price + ' DZD</span>' +
+      (p.delivery_fee > 0 ? '<span class="px-2 py-0.5 bg-yellow-600/15 text-yellow-300 rounded text-xs">Livr. ' + p.delivery_fee + ' DZD</span>' : '<span class="px-2 py-0.5 bg-green-600/15 text-green-300 rounded text-xs">Livr. offerte</span>') +
+      (p.colors ? p.colors.map(c => '<span class="px-2 py-0.5 bg-purple-600/15 text-purple-300 rounded text-xs">' + c + '</span>').join('') : '') +
+      (p.sizes ? p.sizes.map(s => '<span class="px-2 py-0.5 bg-blue-600/15 text-blue-300 rounded text-xs">' + s + '</span>').join('') : '') +
+      (p.stock ? '<span class="px-2 py-0.5 bg-green-600/15 text-green-300 rounded text-xs">' + p.stock + ' dispo</span>' : '') +
+      '</div>' +
+    '</div>' +
+    '</div>'
+  ).join('');
+}
 
-    // ═══ UPLOAD CATALOG ═══
-    document.getElementById('catalogInput').addEventListener('change', async (e) => {
-      const file = e.target.files[0]; if (!file) return;
-      const formData = new FormData(); formData.append('catalog', file); formData.append('clientId', clientId);
-      try { const data = await apiUpload('/api/upload/catalog', formData); showSuccess(`✅ Catalogue : ${data.items} produits`); currentClient = await api(`/api/clients/${clientId}`); renderClient(currentClient); }
-      catch (err) { showError('Erreur upload catalogue : ' + err.message); }
-    });
-  </script>
+// ═══ WIZARD PRODUIT ═══
+let prodStep = 0;
+let productColors = [];
+let productSizes = [];
+let editingProductId = null;
+
+function openProductWizard() {
+  editingProductId = null; prodStep = 0;
+  document.getElementById('modalTitle').textContent = '➕ Nouveau produit';
+  document.getElementById('saveProductBtn').textContent = '💾 Ajouter le produit';
+  document.getElementById('prodName').value = '';
+  document.getElementById('prodDesc').value = '';
+  document.getElementById('prodPrice').value = '';
+  document.getElementById('prodDelivery').value = '';
+  document.getElementById('prodStock').value = '10';
+  document.getElementById('prodImage').value = '';
+  document.getElementById('prodImagePreview').classList.add('hidden');
+  productColors = []; productSizes = [];
+  document.getElementById('editProdId').value = '';
+  updatePStep(0);
+  document.getElementById('productModal').classList.remove('hidden');
+}
+
+function closeProductModal() { document.getElementById('productModal').classList.add('hidden'); }
+
+function updatePStep(step) {
+  prodStep = step;
+  document.querySelectorAll('.p-step').forEach((el,i) => {
+    el.classList.toggle('active', i === step);
+    el.classList.toggle('done', i < step);
+  });
+  document.querySelectorAll('[data-pw]').forEach(el => el.classList.toggle('active', parseInt(el.dataset.pw) === step));
+}
+
+function productStep(s) { updatePStep(s); }
+
+function addColor() {
+  const v = document.getElementById('prodColorInput').value.trim();
+  if (v && !productColors.includes(v)) { productColors.push(v); document.getElementById('prodColorInput').value = ''; renderPTags(); }
+}
+function addSize() {
+  const v = document.getElementById('prodSizeInput').value.trim().toUpperCase();
+  if (v && !productSizes.includes(v)) { productSizes.push(v); document.getElementById('prodSizeInput').value = ''; renderPTags(); }
+}
+function removeColor(c) { productColors = productColors.filter(x => x !== c); renderPTags(); }
+function removeSize(s) { productSizes = productSizes.filter(x => x !== s); renderPTags(); }
+function renderPTags() {
+  document.getElementById('colorTags').innerHTML = productColors.map(c => '<span class="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-600/20 text-purple-300 rounded-lg text-xs">' + c + ' <button onclick="removeColor(\'' + c + '\')" class="text-purple-300/50 hover:text-red-400">✕</button></span>').join('');
+  document.getElementById('sizeTags').innerHTML = productSizes.map(s => '<span class="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-600/20 text-blue-300 rounded-lg text-xs">' + s + ' <button onclick="removeSize(\'' + s + '\')" class="text-purple-300/50 hover:text-red-400">✕</button></span>').join('');
+}
+
+document.getElementById('prodColorInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addColor(); } });
+document.getElementById('prodSizeInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addSize(); } });
+
+document.getElementById('prodImageUpload').addEventListener('change', async (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const fd = new FormData(); fd.append('image', file);
+    const data = await apiUpload('/api/upload/product-image', fd);
+    document.getElementById('prodImage').value = data.url;
+    document.getElementById('prodImagePreview').classList.remove('hidden');
+    document.getElementById('prodImagePreviewImg').src = data.url;
+  } catch(err) { showError('Erreur upload'); }
+});
+
+document.getElementById('prodImage').addEventListener('input', function() {
+  if (this.value) { document.getElementById('prodImagePreview').classList.remove('hidden'); document.getElementById('prodImagePreviewImg').src = this.value; }
+});
+
+function saveProduct() {
+  const name = document.getElementById('prodName').value.trim();
+  const price = document.getElementById('prodPrice').value;
+  if (!name || !price) { showError('Nom et prix requis.'); return; }
+
+  const product = {
+    id: editingProductId || 'prod_' + Date.now(),
+    name,
+    description: document.getElementById('prodDesc').value.trim(),
+    price: parseFloat(price),
+    delivery_fee: parseFloat(document.getElementById('prodDelivery').value) || 0,
+    stock: parseInt(document.getElementById('prodStock').value) || 0,
+    colors: productColors,
+    sizes: productSizes,
+    image: document.getElementById('prodImage').value.trim(),
+    currency: 'DZD',
+  };
+
+  let products = currentClient.catalog || [];
+  if (editingProductId) {
+    const idx = products.findIndex(p => p.id === editingProductId);
+    if (idx >= 0) products[idx] = product;
+  } else {
+    products.push(product);
+  }
+  currentClient.catalog = products;
+  renderProducts(products);
+  closeProductModal();
+  showSuccess(editingProductId ? '✅ Produit modifié' : '✅ Produit ajouté');
+}
+
+function editProduct(id) {
+  const p = (currentClient.catalog || []).find(x => x.id === id);
+  if (!p) return;
+  editingProductId = id;
+  document.getElementById('modalTitle').textContent = '✏️ ' + p.name;
+  document.getElementById('saveProductBtn').textContent = '💾 Enregistrer';
+  document.getElementById('prodName').value = p.name;
+  document.getElementById('prodDesc').value = p.description || '';
+  document.getElementById('prodPrice').value = p.price || '';
+  document.getElementById('prodDelivery').value = p.delivery_fee || '';
+  document.getElementById('prodStock').value = p.stock || 0;
+  document.getElementById('prodImage').value = p.image || '';
+  productColors = p.colors || []; productSizes = p.sizes || [];
+  renderPTags();
+  if (p.image) { document.getElementById('prodImagePreview').classList.remove('hidden'); document.getElementById('prodImagePreviewImg').src = p.image; }
+  document.getElementById('editProdId').value = id;
+  updatePStep(0);
+  document.getElementById('productModal').classList.remove('hidden');
+}
+
+function deleteProduct(id) {
+  if (!confirm('Supprimer ce produit ?')) return;
+  currentClient.catalog = (currentClient.catalog || []).filter(p => p.id !== id);
+  renderProducts(currentClient.catalog);
+  showSuccess('🗑️ Produit supprimé');
+}
+</script>
 </body>
 </html>
