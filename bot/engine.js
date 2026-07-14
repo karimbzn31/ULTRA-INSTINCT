@@ -37,12 +37,10 @@ export async function generateReply(clientId, platform, senderId, messageType, c
 
     // 4. Gérer selon le type de message
     if (messageType === 'image' && capabilities !== 'text_image_audio' && capabilities !== 'text_image') {
-      return "Désolée, je ne peux pas analyser les images pour le moment. Peux-tu me décrire ce dont tu as besoin ?";
+      return { text: "Désolée, je ne peux pas analyser les images pour le moment. Peux-tu me décrire ce dont tu as besoin ?", images: [] };
     }
-
-    if (messageType === 'audio' && capabilities !== 'text_image_audio') {
-      return "Désolée, je ne peux pas traiter les messages vocaux pour le moment. Peux-tu m'écrire ?";
-    }
+    // Audio : on essaie TOUJOURS, meme si pas configuré
+    // Si la transcription echoue, le bot demandera d'ecrire
 
     // 5. Construire le prompt système
     const systemPrompt = buildSystemPrompt(client);
@@ -131,15 +129,15 @@ export async function generateReply(clientId, platform, senderId, messageType, c
       reply = await callLLM(history, systemPrompt + mediaDescription, apiKey, model, client.catalog);
 
     } else if (messageType === 'audio') {
-      // Audio → Transcription Gemini puis DeepSeek
+      // Audio → Transcription via MiMo (ou Gemini en fallback)
       console.log('[Bot] 🎤 Transcription audio...');
-      const geminiKey = client.gemini_api_key || client.api_key || process.env.GOOGLE_AI_API_KEY || '';
-      const transcription = await transcribeAudio(attachmentUrl, geminiKey);
+      const metaToken = client.meta_token || '';
+      const transcription = await transcribeAudio(attachmentUrl, client.api_key, client.gemini_api_key || process.env.GOOGLE_AI_API_KEY || '', metaToken);
       if (transcription) {
-        mediaDescription = `\n[L'utilisateur a envoyé un message vocal. Transcription : "${transcription}"]`;
-        console.log('[Bot] ✅ Audio transcrit par Gemini');
+        mediaDescription = `\n---\n🎤 L'utilisateur a envoyé un message vocal. Transcription : "${transcription}"\n---`;
+        console.log('[Bot] ✅ Audio transcrit');
       } else {
-        mediaDescription = "\n[L'utilisateur a envoyé un message vocal mais je n'ai pas pu le transcrire. Demande-lui d'écrire.]";
+        mediaDescription = "\n---\n🎤 L'utilisateur a envoyé un message vocal. (Transcription impossible)" + "\nDemande-lui poliment d'écrire son message à la place.\n---";
       }
       reply = await callLLM(history, systemPrompt + mediaDescription, apiKey, model, client.catalog);
 
