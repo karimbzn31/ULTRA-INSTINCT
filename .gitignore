@@ -6,3 +6,6 @@ uploads/clients/*
 data/*.json
 *.log
 .DS_Store
+
+.vercel
+.env*

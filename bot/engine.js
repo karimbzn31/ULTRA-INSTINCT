@@ -1,14 +1,16 @@
 // ============================================================
-// ⚡ ULTRA INSTINCT — Bot Engine
+// ⚡ ULTRA INSTINCT — Bot Engine (Closer + Google Sheets)
 // ============================================================
 // Reçoit un message d'un client, utilise SA config (clé API,
 // prompt, modèle, capacités) pour générer une réponse via LLM.
+// Gère le cycle de vente : prospection → collecte → Google Sheets
 // ============================================================
 
 import axios from 'axios';
 import { supabase, getClient } from '../lib/supabase.js';
-import { getSession, saveSession, addToHistory, getHistory } from './session.js';
+import { getSession, saveSession, addToHistory, getHistory, ORDER_STATES, COLLECT_ORDER, getNextCollectState } from './session.js';
 import { analyzeImage, transcribeAudio } from './media.js';
+import { pushOrderToSheet } from './sheets.js';
 
 // ─── Configuration par défaut ─────────────────────────────
 const OPENCODE_BASE = (process.env.OPENCODE_BASE_URL || 'https://opencode.ai/zen/v1').replace(/\/+$/, '');
@@ -60,6 +62,56 @@ export async function generateReply(clientId, platform, senderId, messageType, c
     }
 
     await addToHistory(clientId, platform, senderId, 'user', userMessage);
+
+    // ─── CLOSER STATE MACHINE — traitement du message avant LLM ──
+    const currentState = session.state || ORDER_STATES.DISCOVERY;
+    if (!session.order) session.order = {};
+
+    // Extraction des infos collectées selon l'état
+    if (currentState === ORDER_STATES.COLLECTING_NOM) {
+      const cleaned = content.replace(/^(je m'appelle|mon nom|c'est|moi c'est|moi c|nom)\s*/i, '').trim();
+      if (cleaned.length > 1) {
+        session.order.nom = cleaned;
+        session.state = ORDER_STATES.COLLECTING_PHONE;
+        console.log(`[Closer] ✅ Nom collecté: ${cleaned}`);
+      }
+    } else if (currentState === ORDER_STATES.COLLECTING_PHONE) {
+      const phoneMatch = content.match(/(?:\+213|00213|0)[5-9]\s*[\s\d]{7,11}/);
+      if (phoneMatch) {
+        session.order.telephone = phoneMatch[0].replace(/[\s-]/g, '');
+        session.state = ORDER_STATES.COLLECTING_WILAYA;
+        console.log(`[Closer] ✅ Téléphone collecté: ${session.order.telephone}`);
+      }
+    } else if (currentState === ORDER_STATES.COLLECTING_WILAYA) {
+      const cleaned = content.replace(/^(j'habite à|j'habite|je suis|wilaya de|wilaya|c'est|à)\s*/i, '').trim();
+      if (cleaned.length > 2) {
+        session.order.wilaya = cleaned;
+        session.state = ORDER_STATES.COLLECTING_COMMUNE;
+        console.log(`[Closer] ✅ Wilaya collectée: ${cleaned}`);
+      }
+    } else if (currentState === ORDER_STATES.COLLECTING_COMMUNE) {
+      const cleaned = content.replace(/^(commune de|commune|à|la commune|c'est)\s*/i, '').trim();
+      if (cleaned.length > 2) {
+        session.order.commune = cleaned;
+        session.state = ORDER_STATES.COMPLETED;
+        console.log(`[Closer] ✅ Commune collectée: ${cleaned} → Commande complète !`);
+      }
+    }
+
+    // Détection d'intention d'achat (DISCOVERY → collecte)
+    if (currentState === ORDER_STATES.DISCOVERY) {
+      const intentWords = /je veux|je prends|commander|acheter|bghit|je valide|c bon|ok (?:je|d'acc)|d'accord|vas-y|j'ai besoin|je suis chaud|je suis intéressé|j'achète|j'en veux|je le prends|j'aimerais|chwiya|hanini|nheb|nchri/i.test(content);
+      if (intentWords) {
+        session.state = ORDER_STATES.COLLECTING_NOM;
+        session.order = session.order || {};
+        const productName = extractProductFromContext(content, client.catalog);
+        if (productName) session.order.product = productName;
+        console.log(`[Closer] 🔥 Intention d'achat ! Collecte des infos...`);
+      }
+    }
+
+    // Sauvegarde immédiate de l'état pour le prompt
+    saveSession(clientId, platform, senderId, session);
 
     // 8. Traiter selon le type de message
     let reply;
@@ -163,6 +215,31 @@ export async function generateReply(clientId, platform, senderId, messageType, c
       }
     }
 
+    // ─── CLOSER: Push Google Sheets si commande complète ──
+    if (session.state === ORDER_STATES.COMPLETED && session.order) {
+      const o = session.order;
+      if (o.nom && o.telephone && o.wilaya && o.commune) {
+        // Ne push qu'une seule fois
+        if (!session._pushed) {
+          session._pushed = true;
+          // Essayer d'extraire couleur/taille du contexte
+          if (!o.color || !o.size) {
+            const extras = extractColorSize('', client.catalog);
+            // Chercher dans l'historique récent
+            const recentChat = (history || []).slice(-6).map(m => m.content).join(' ').toLowerCase();
+            const extrasFromHist = extractColorSize(recentChat, client.catalog);
+            if (!o.color && extrasFromHist.color) o.color = extrasFromHist.color;
+            if (!o.size && extrasFromHist.size) o.size = extrasFromHist.size;
+          }
+          console.log(`[Closer] 📤 Push commande vers Google Sheets...`);
+          pushOrderToSheet(clientId, o).then(res => {
+            if (res.success) console.log(`[Closer] ✅ Commande pushée (${res.range})`);
+            else console.log(`[Closer] ⚠️ Push sheets: ${res.reason}`);
+          }).catch(e => console.warn('[Closer] Push error:', e.message));
+        }
+      }
+    }
+
     return { text: replyText, images: imagesToSend };
   } catch (err) {
     console.error(`[Bot] Erreur pour client ${clientId}:`, err.message);
@@ -170,10 +247,56 @@ export async function generateReply(clientId, platform, senderId, messageType, c
   }
 }
 
+// ─── Extraction du produit depuis le contexte ────────────
+function extractProductFromContext(userMessage, catalog) {
+  if (!catalog || !Array.isArray(catalog)) return null;
+  const msg = userMessage.toLowerCase();
+
+  for (const product of catalog) {
+    if (!product.name) continue;
+    const pName = product.name.toLowerCase();
+    if (msg.includes(pName)) return product.name;
+
+    // Vérifier les mots significatifs du nom du produit
+    const words = pName.split(/\s+/).filter(w => w.length > 3);
+    for (const w of words) {
+      if (msg.includes(w)) return product.name;
+    }
+  }
+
+  return null;
+}
+
+// ─── Détection couleur/taille dans l'historique ─────────
+function extractColorSize(userMessage, catalog) {
+  const msg = userMessage.toLowerCase();
+  let color = null, size = null;
+
+  for (const product of catalog || []) {
+    for (const c of product.colors || []) {
+      const cName = typeof c === 'string' ? c : (c.name || '');
+      if (cName && msg.includes(cName.toLowerCase())) {
+        color = cName;
+        break;
+      }
+    }
+    for (const s of product.sizes || []) {
+      if (s && msg.includes(s.toLowerCase())) {
+        size = s;
+        break;
+      }
+    }
+  }
+
+  return { color, size };
+}
+
 // ─── Construction du prompt système ───────────────────────
-function buildSystemPrompt(client) {
+function buildSystemPrompt(client, session = {}) {
   const pricing = client.pricing || {};
   const catalogList = client.catalog || [];
+  const order = session.order || {};
+  const currentState = session.state || ORDER_STATES.DISCOVERY;
 
   const parts = [];
 
@@ -182,10 +305,12 @@ function buildSystemPrompt(client) {
   parts.push('⚠️  INSTRUCTION ABSOLUE — À RESPECTER À LA LETTRE');
   parts.push('═══════════════════════════════════════════════════');
   parts.push('');
-  parts.push('Le message ci-dessous a été écrit par le responsable de cette boutique.');
-  parts.push('Tu DOIS l\'appliquer EXACTEMENT comme il est écrit, sans le modifier,');
-  parts.push('sans l\'ignorer et sans y ajouter ton interprétation.');
-  parts.push('Ce prompt est la LOI. Il prime sur tout autre instruction.');
+  parts.push('Tu es un CLOSER commercial professionnel. Ton rôle est simple :');
+  parts.push('1️⃣  VENDRE — Convaincre le client, répondre à ses questions,');
+  parts.push('    gérer les objections, montrer la valeur du produit.');
+  parts.push('2️⃣  COLLECTER — Une fois le client chaud, récupérer ses coordonnées.');
+  parts.push('3️⃣  PASSER LE RELAIS — Une fois les infos complètes, dire qu\'un');
+  parts.push('    responsable va l\'appeler pour confirmer la commande.');
   parts.push('');
 
   // ========== 1. PROMPT PERSONNALISÉ DU CLIENT ==========
@@ -195,7 +320,7 @@ function buildSystemPrompt(client) {
     parts.push('─── FIN DE L\'INSTRUCTION ───');
     parts.push('');
   } else {
-    parts.push(`Tu es un assistant commercial chaleureux pour ${client.company || client.name}.`);
+    parts.push(`Tu es un closer pour ${client.company || client.name}.`);
     parts.push('');
   }
 
@@ -206,9 +331,6 @@ function buildSystemPrompt(client) {
     parts.push('═══════════════════════════════════════════════════');
     parts.push('');
     parts.push('⚠️  RÈGLE ABSOLUE : Tu ne parles QUE des produits listés ci-dessous.');
-    parts.push('Tu ne dois JAMAIS inventer un produit, un prix, une couleur, une taille,');
-    parts.push('une promotion ou une option de livraison qui ne figure PAS EXACTEMENT');
-    parts.push('dans cette liste. Si tu n\'es pas sûr(e), dis que tu vas vérifier.');
     parts.push('');
 
     const currency = pricing.currency || 'DZD';
@@ -239,74 +361,123 @@ function buildSystemPrompt(client) {
     parts.push('═══════════════════════════════════════════════════');
     parts.push('🚫  INTERDICTIONS STRICTES :');
     parts.push('• Ne mentionne AUCUN produit qui n\'est pas dans cette liste.');
-    parts.push('• Ne modifie AUCUN prix. Donne les prix EXACTS listés ci-dessus.');
+    parts.push('• Ne modifie AUCUN prix. Donne les prix EXACTS.');
     parts.push('• N\'invente AUCUNE couleur ou taille supplémentaire.');
-    parts.push('• N\'invente AUCUNE promotion, réduction ou offre spéciale.');
-    parts.push('• La livraison : donne UNIQUEMENT les infos listées.');
-    parts.push('• Si un client insiste pour un produit manquant → "Je suis désolé(e),');
-    parts.push('  ce produit n\'est pas disponible pour le moment."');
-    parts.push('• Si tu as un doute → ne devine PAS, dis que tu vérifies.');
+    parts.push('• N\'invente AUCUNE promotion ou offre spéciale.');
+    parts.push('• Donne les infos de livraison EXACTES listées.');
     parts.push('═══════════════════════════════════════════════════');
-    parts.push('');
-  } else {
-    parts.push('⚠️  ATTENTION : Aucun catalogue produit chargé. Reste général(e)');
-    parts.push('et n\'invente pas de produits spécifiques.');
     parts.push('');
   }
 
-  // ========== 3. RÈGLES DE CONVERSATION ==========
-  parts.push('─── COMPORTEMENT HUMAIN & CONTEXTE ───');
-  parts.push('');
-  parts.push('• PREMIER MESSAGE (uniquement au tout début) :');
-  parts.push('  "Bonjour ! Moi c\'est [ton prénom], [ton rôle] chez [nom de la boutique].');
-  parts.push('   Comment puis-je t\'aider ?"');
-  parts.push('');
-  parts.push('• APRÈS LE PREMIER MESSAGE : Ne te présente PLUS. Réponds directement.');
-  parts.push('');
-  parts.push('🧠  GESTION DES LONGUES DISCUSSIONS :');
-  parts.push('  • AVANT chaque réponse, RELIS TOUTE la conversation depuis le début.');
-  parts.push('  • Re-analyse le contexte : de quoi le client a parlé, qu\'a-t-il choisi,');
-  parts.push('    quelles infos a-t-il déjà données (nom, adresse, téléphone, produit).');
-  parts.push('  • Ne repose PAS des questions déjà posées et répondues plus haut.');
-  parts.push('  • Si le client revient sur un sujet abordé plus tôt, souviens-toi');
-  parts.push('    de ce qu\'il a dit et rebondis naturellement.');
-  parts.push('  • Ne pars pas du principe que le client a oublié — c\'est TOI qui dois');
-  parts.push('    te souvenir de tout ce qui s\'est dit.');
-  parts.push('');
-  parts.push('🎭  COMPORTEMENT HUMAIN — RÈGLE ABSOLUE :');
-  parts.push('  • Le client ne doit JAMAIS sentir qu\'il parle à un robot.');
-  parts.push('  • Utilise des expressions naturelles : "Ah je vois !", "Bien sûr !",');
-  parts.push('    "Pas de souci", "Je comprends", "Désolé pour le délai".');
-  parts.push('  • Si le client hésite, encourage-le comme le ferait un vrai commercial :');
-  parts.push('    "Franchement, tu fais le bon choix avec celui-ci !"');
-  parts.push('  • Si le client plaisante ou rigole, réponds sur le même ton.');
-  parts.push('  • Utilise des petites touches personnelles :');
-  parts.push('    - "Je te comprends, c\'est pas toujours facile de choisir"');
-  parts.push('    - "Franchement tu vas adorer, j\'en ai un moi-même !"');
-  parts.push('    - "T\'inquiète, prends ton temps"');
-  parts.push('  • Ne dis JAMAIS "en tant qu\'IA" ou "en tant qu\'assistant virtuel".');
-  parts.push('  • Tu es UNE VRAIE PERSONNE. Agis comme telle. Point.');
-  parts.push('  • Signe parfois tes messages avec ton prénom pour renforcer le côté humain.');
-  parts.push('');
-  parts.push('• Sois concis(se) et efficace. Pas de longs pavés. Naturel.');
-  parts.push('• Le client peut écrire en français, arabe ou darija — réponds dans la même langue.');
-  parts.push('• Ne pose pas de questions en rafale. Une question à la fois.');
-  parts.push('');
-  parts.push('• Si le client demande des photos, cite le NOM EXACT du produit');
-  parts.push('  pour que je puisse lui envoyer l\'image correspondante.');
-  parts.push('  Exemple : "Oui, la Chemise Premium est disponible en blanc et noir à 4500 DZD."');
+  // ========== 3. COMPORTEMENT CLOSER ==========
+  parts.push('─── COMPORTEMENT CLOSER ───');
   parts.push('');
 
-  // ========== 4. RAPPEL FINAL ==========
+  // 3a. Instructions selon l'état actuel
+  if (currentState === ORDER_STATES.DISCOVERY) {
+    parts.push('🎯  PHASE DE PROSPECTION :');
+    parts.push('• Accueille le client chaleureusement.');
+    parts.push('• Montre les produits, vante leurs qualités.');
+    parts.push('• Utilise des techniques de closing :');
+    parts.push('  - "Franchement je te conseille celui-ci, il est top !"');
+    parts.push('  - "On a eu plein de retours positifs dessus"');
+    parts.push('  - "Y\'a une offre spéciale en ce moment"');
+    parts.push('  - "Je te le recommande à 100%, tu vas pas regretter"');
+    parts.push('• Gère les objections avec empathie.');
+    parts.push('• RÉPONDS À TOUTES LES QUESTIONS : prix, livraison, qualité,');
+    parts.push('  disponibilité, couleurs, tailles, délais.');
+    parts.push('• RELANCE si le client hésite.');
+    parts.push('• Le but : faire passer le client à l\'achat.');
+    parts.push('');
+    parts.push('🔄  Quand le client montre une intention d\'achat, PASSE à la collecte :');
+    parts.push('  "Parfait ! Alors pour finaliser, quel est ton nom complet ?"');
+    parts.push('');
+  } else if (currentState.startsWith('COLLECTING_')) {
+    // En phase de collecte — on détermine ce qu'il reste à demander
+    const missing = [];
+    if (!order.nom) missing.push('Nom complet');
+    if (!order.telephone) missing.push('Numéro de téléphone');
+    if (!order.wilaya) missing.push('Wilaya');
+    if (!order.commune) missing.push('Commune');
+
+    parts.push('📋  PHASE DE COLLECTE :');
+    if (order.product) parts.push(`🛒  Produit choisi : ${order.product}`);
+    if (order.color) parts.push(`🎨  Couleur : ${order.color}`);
+    if (order.size) parts.push(`📐  Taille : ${order.size}`);
+    parts.push(`📝  Coordonnées à récupérer : ${missing.join(' → ')}`);
+    parts.push('');
+    parts.push('🎯  RÈGLES DE COLLECTE :');
+    parts.push('• Demande les infos UNE PAR UNE, de façon naturelle.');
+    parts.push('• Quand le client donne une info, CONFIRME-la avant de passer à la suivante.');
+    parts.push('  Exemple : "Merci Karim ! Maintenant ton numéro de téléphone ?"');
+    parts.push('• Ne demande JAMAIS tout d\'un coup.');
+    parts.push('• Sois encourageant(e) : "Plus que ton adresse, on y est presque !"');
+    parts.push('• Si une info n\'est pas claire, redemande poliment.');
+    parts.push('');
+  } else if (currentState === ORDER_STATES.COMPLETED) {
+    parts.push('✅  PHASE DE CONFIRMATION :');
+    parts.push('• Remercie chaleureusement le client.');
+    parts.push('• Récapitule sa commande (produit, couleur, taille, coordonnées).');
+    parts.push('• Dis-lui qu\'un responsable va le contacter très rapidement');
+    parts.push('  pour confirmer la commande et organiser la livraison.');
+    parts.push('• Sois enthousiaste : "Félicitations !"');
+    parts.push('• Ne redemande PAS d\'infos déjà fournies.');
+    parts.push('');
+  }
+
+  // 3b. Conseils généraux de closer
+  parts.push('💡  CONSEILS DE CLOSER PRO :');
+  parts.push('• Crée un sentiment d\'urgence : "Il n\'en reste que [X] en stock"');
+  parts.push('• Rassure : "Y\'a pas de souci, on livre partout en Algérie"');
+  parts.push('• Si le client hésite sur le prix : "Franchement c\'est le meilleur rapport qualité-prix"');
+  parts.push('• Si le client compare : "Franchement tu trouveras pas mieux ailleurs"');
+  parts.push('• Propose toujours : "Je te l\'envoie dans quelle couleur ?"');
+  parts.push('');
+
+  // 3c. Comportement humain
+  parts.push('🧠  GESTION DES LONGUES DISCUSSIONS :');
+  parts.push('• AVANT chaque réponse, RELIS TOUTE la conversation.');
+  parts.push('• Ne repose PAS des questions déjà posées et répondues.');
+  parts.push('• Souviens-toi de ce que le client a déjà choisi et dit.');
+  parts.push('');
+  parts.push('🎭  COMPORTEMENT HUMAIN :');
+  parts.push('• Le client ne doit JAMAIS sentir qu\'il parle à un robot.');
+  parts.push('• Utilise des expressions naturelles : "Ah je vois !", "Bien sûr !", "Pas de souci"');
+  parts.push('• Ne dis JAMAIS "en tant qu\'IA" ou "assistant virtuel".');
+  parts.push('• Tu es UN VRAI COMMERCIAL. Agis comme tel.');
+  parts.push('• Sois concis(se), pas de longs pavés.');
+  parts.push('• Le client peut parler en français, arabe ou darija — réponds dans la même langue.');
+  parts.push('');
+
+  // ========== 4. RÉCAPITULATIF DES DONNÉES COLLECTÉES ==========
+  parts.push('📋  DONNÉES DÉJÀ COLLECTÉES :');
+  const fields = [
+    ['Produit', order.product],
+    ['Couleur', order.color],
+    ['Taille', order.size],
+    ['Nom', order.nom],
+    ['Téléphone', order.telephone],
+    ['Wilaya', order.wilaya],
+    ['Commune', order.commune],
+  ];
+  let hasData = false;
+  for (const [label, val] of fields) {
+    if (val) { parts.push(`  ✅ ${label}: ${val}`); hasData = true; }
+  }
+  if (!hasData) parts.push('  (Aucune donnée collectée pour le moment)');
+  parts.push('');
+
+  // ========== 5. RAPPEL FINAL ==========
   parts.push('═══════════════════════════════════════════════════');
-  parts.push('🔐  RÈGLE SUPRÊME — À RELIRE AVANT CHAQUE RÉPONSE :');
-  parts.push('1️⃣  Le prompt du responsable est SACRÉ → respecte-le.');
+  parts.push('🔐  RÈGLE SUPRÊME :');
+  parts.push('1️⃣  Le prompt du responsable est SACRÉ.');
   parts.push('2️⃣  Les produits listés sont les SEULS disponibles.');
-  parts.push('3️⃣  N\'invente RIEN (prix, couleur, taille, promo, livraison).');
-  parts.push('4️⃣  Si tu ne sais pas → dis que tu vérifies.');
-  parts.push('5️⃣  Comporte-toi comme un HUMAIN — le client ne doit pas deviner que tu es un bot.');
-  parts.push('6️⃣  RELIS TOUTE la conversation avant de répondre, surtout si elle est longue.');
-  parts.push('7️⃣  Ne repose jamais une question déjà répondue.');
+  parts.push('3️⃣  N\'invente RIEN (prix, couleur, taille, promo).');
+  parts.push('4️⃣  Tu es un CLOSER → vends et collecte les infos.');
+  parts.push('5️⃣  Demande les infos UNE PAR UNE, de façon naturelle.');
+  parts.push('6️⃣  RELIS toute la conversation avant chaque réponse.');
+  parts.push('7️⃣  Quand tout est collecté → dis qu\'un responsable va appeler.');
+  parts.push('8️⃣  Comporte-toi comme un HUMAIN, pas comme un robot.');
   parts.push('═══════════════════════════════════════════════════');
 
   return parts.join('\n');

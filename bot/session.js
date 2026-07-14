@@ -9,7 +9,44 @@ import { supabase } from '../lib/supabase.js';
 
 // Cache mémoire pour éviter les requêtes Supabase à chaque message
 const sessionsCache = new Map();
-const HISTORY_MAX = 30;
+const HISTORY_MAX = 50; // Plus d'historique pour les longues discussions closer
+
+// ─── États du cycle de vente (Closer) ────────────────────
+export const ORDER_STATES = {
+  DISCOVERY: 'DISCOVERY',               // Prospection / découverte
+  READY_TO_ORDER: 'READY_TO_ORDER',     // Client prêt à commander
+  COLLECTING_NOM: 'COLLECTING_NOM',     // Collecte du nom
+  COLLECTING_PHONE: 'COLLECTING_PHONE', // Collecte du téléphone
+  COLLECTING_WILAYA: 'COLLECTING_WILAYA',   // Collecte wilaya
+  COLLECTING_COMMUNE: 'COLLECTING_COMMUNE', // Collecte commune
+  COMPLETED: 'COMPLETED',               // Terminé → push Google Sheets
+};
+
+// ─── Ordre de collecte des infos ─────────────────────────
+export const COLLECT_ORDER = [
+  { state: ORDER_STATES.COLLECTING_NOM, field: 'nom', label: 'Nom complet' },
+  { state: ORDER_STATES.COLLECTING_PHONE, field: 'telephone', label: 'Numéro de téléphone' },
+  { state: ORDER_STATES.COLLECTING_WILAYA, field: 'wilaya', label: 'Wilaya' },
+  { state: ORDER_STATES.COLLECTING_COMMUNE, field: 'commune', label: 'Commune' },
+];
+
+// ─── Déterminer le prochain état de collecte ─────────────
+export function getNextCollectState(currentState) {
+  const idx = COLLECT_ORDER.findIndex(s => s.state === currentState);
+  if (idx === -1) return null;
+  return idx + 1 < COLLECT_ORDER.length ? COLLECT_ORDER[idx + 1].state : ORDER_STATES.COMPLETED;
+}
+
+// ─── Obtenir le libellé de la question à poser ───────────
+export function getCollectQuestion(state) {
+  const questions = {
+    [ORDER_STATES.COLLECTING_NOM]: 'Quel est ton nom complet ?',
+    [ORDER_STATES.COLLECTING_PHONE]: 'Quel est ton numéro de téléphone ?',
+    [ORDER_STATES.COLLECTING_WILAYA]: 'Dans quelle wilaya habites-tu ?',
+    [ORDER_STATES.COLLECTING_COMMUNE]: 'Et ta commune ?',
+  };
+  return questions[state] || '';
+}
 
 // ─── Récupérer ou créer une session ─────────────────────
 export async function getSession(clientId, platform, userId) {

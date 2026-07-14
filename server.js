@@ -367,6 +367,34 @@ app.post('/api/upload/product-image', authMiddleware, productUpload.single('imag
   }
 });
 
+// ─── Google Sheets Config ────────────────────────────────
+app.put('/api/clients/:id/sheets', authMiddleware, async (req, res) => {
+  try {
+    const { google_sheet_id, google_sheet_service_key } = req.body;
+    if (!google_sheet_id) {
+      return res.status(400).json({ error: 'ID de la feuille Google Sheets requis.' });
+    }
+    const client = await updateClient(req.params.id, {
+      google_sheet_id,
+      google_sheet_service_key: google_sheet_service_key || '',
+    });
+    if (!client) return res.status(404).json({ error: 'Client non trouvé.' });
+    res.json({ success: true, message: '✅ Google Sheets configuré !' });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur configuration sheets.' });
+  }
+});
+
+app.get('/api/clients/:id/sheets/test', authMiddleware, async (req, res) => {
+  try {
+    const { testSheetConnection } = await import('./bot/sheets.js');
+    const result = await testSheetConnection(req.params.id);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── Test manuel du bot (POST) ──────────────────────────
 app.post('/api/test-bot', async (req, res) => {
   try {
