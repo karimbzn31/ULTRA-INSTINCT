@@ -165,7 +165,7 @@ function buildSystemPrompt(client) {
     });
 
     parts.push('\n🚫 RÈGLE ABSOLUE : Tu ne vends QUE les produits listés ci-dessus. Si un client demande un produit qui n\'est pas dans la liste, dis-lui que tu ne l\'as pas. N\'invente RIEN.');
-    parts.push('\n🖼️ IMAGES : Si le client demande à voir un produit, nomme-le précisément (ex: "Chemise Premium") et je t\'enverrai sa photo automatiquement.');
+    parts.push('\n🖼️ RÈGLE IMAGE : Quand tu parles d\'un produit, ajoute à la fin de ta réponse : [IMAGE:NOM_DU_PRODUIT]. Exemple : "Voici notre chemise premium à 4500 DZD [IMAGE:Chemise Premium]". N\'ajoute [IMAGE:...] que pour les produits qui existent dans la liste.');
   }
 
   // 3. Règles de collecte
