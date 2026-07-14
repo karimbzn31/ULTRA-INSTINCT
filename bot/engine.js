@@ -110,29 +110,25 @@ export async function generateReply(clientId, platform, senderId, messageType, c
     // 12. Mettre à jour les stats
     await updateStats(clientId);
 
-    // 13. DÉTECTION INTELLIGENTE : quel produit DeepSeek mentionne-t-il ?
-
-
+    // 13. ENVOI D'IMAGES : détection flexible
     if (client.catalog && client.catalog.length > 0 && replyText) {
       const replyLower = replyText.toLowerCase();
+      const askedForPics = /image|photo|montre|voir|affiche/i.test(content || '');
 
-      // Chercher chaque produit du catalogue dans la réponse
       for (const product of client.catalog) {
-        const productNameLower = product.name.toLowerCase();
-        const productWords = productNameLower.split(/\s+/);
+        if (!product.colors || product.colors.length === 0) continue;
+        const pName = product.name.toLowerCase();
+        const words = pName.split(/\s+/).filter(w => w.length > 2);
 
-        // Vérifier si le nom du produit est mentionné (complet ou mots-clés)
-        const isMentioned = productWords.length > 1
-          ? productWords.every(word => word.length > 2 && replyLower.includes(word))
-          : replyLower.includes(productNameLower);
+        let found = askedForPics; // Si demande explicite → tous les produits
+        if (!found) {
+          found = words.some(w => replyLower.includes(w)) || replyLower.includes(pName);
+        }
 
-        if (isMentioned && product.colors) {
+        if (found) {
           for (const color of product.colors) {
             const img = typeof color === 'string' ? '' : (color.image || '');
-            if (img && !imagesToSend.includes(img)) {
-              imagesToSend.push(img);
-              console.log(`[Bot] ✅ Image trouvee pour: ${product.name}`);
-            }
+            if (img && !imagesToSend.includes(img)) imagesToSend.push(img);
           }
         }
       }
