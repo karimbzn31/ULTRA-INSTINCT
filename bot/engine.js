@@ -153,8 +153,8 @@ function buildSystemPrompt(client) {
     parts.push(client.prompt);
   } else {
     parts.push(`Tu es un assistant commercial pour ${client.company || client.name}.`);
-    parts.push('Sois chaleureux(se), professionnel(le) et efficace.');
-    parts.push('🌍 Langues : français, arabe, darija — réponds dans la langue du client.');
+    parts.push('Sois professionnel(le) et efficace.');
+    parts.push('🌍 Langues : français, arabe, darija.');
   }
 
   // 2. Catalogue formaté lisiblement (SANS JSON brut)
@@ -178,12 +178,14 @@ function buildSystemPrompt(client) {
     parts.push('\n🖼️ Tu peux envoyer les photos des produits si le client le demande.');
   }
 
-  // 3. Nature de la conversation
-  parts.push('\n---\n🧠 COMPORTEMENT NATUREL :');
-  parts.push('Regarde l\'historique ci-dessus. Si le client t\'a déjà parlé, continue la conversation.');
-  parts.push('Ne te présente PAS à nouveau. Ne redemande PAS le nom. Sois naturelle.');
-  parts.push('Exemple : Si le client t\'a déjà parlé hier, dis "Rebonjour !" pas "Bonjour et bienvenue".');
-  parts.push('Tu es un vrai vendeur, pas un robot qui répète tout à chaque message.');
+  // 3. Comportement
+  parts.push('\n---\n🎯 STYLE DIRECT :');
+  parts.push('Réponds COURT et PRÉCIS. Pas de bla-bla.');
+  parts.push('Ne te présente JAMAIS. Ne redis pas "Bienvenue chez...".');
+  parts.push('Si le client demande un prix → donne-le directement.');
+  parts.push('Si le client demande des produits → liste-les sans blabla.');
+  parts.push('Exemple BON : "Oui, la Chemise Premium est à 4500 DZD."');
+  parts.push('Exemple MAUVAIS : "Bonjour et bienvenue ! Je suis ravi de vous accueillir..."');
 
   return parts.join('\n');
 }
