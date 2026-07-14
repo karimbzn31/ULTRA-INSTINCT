@@ -96,15 +96,16 @@ export async function generateReply(clientId, platform, senderId, messageType, c
       reply = await callLLM(history, systemPrompt, apiKey, model, client.catalog);
     }
 
-    // 9. Ajouter la réponse à l'historique
-    addToHistory(clientId, platform, senderId, 'assistant', reply);
+    // 9. Ajouter la réponse à l'historique (TEXTE SEULEMENT)
+    const replyText = reply?.text || reply || '';
+    addToHistory(clientId, platform, senderId, 'assistant', replyText);
 
     // 10. Sauvegarder la session
     saveSession(clientId, platform, senderId, session);
 
     // 11. Journaliser le message
     await logMessage(clientId, platform, senderId, 'user', userMessage);
-    await logMessage(clientId, platform, senderId, 'assistant', reply);
+    await logMessage(clientId, platform, senderId, 'assistant', replyText);
 
     // 12. Mettre à jour les stats
     await updateStats(clientId);
