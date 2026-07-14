@@ -343,27 +343,25 @@ app.post('/api/upload/catalog', authMiddleware, upload.single('catalog'), async 
 app.get('/webhook', verifyWebhook);
 app.post('/webhook', handleIncoming);
 
-// ─── Upload image produit ────────────────────────────────
+// ─── Upload image produit vers Supabase Storage ──────────
 const productUpload = multer({
-  storage: multer.diskStorage({
-    destination: (req, file, cb) => cb(null, PRODUCTS_UPLOAD_DIR),
-    filename: (req, file, cb) => {
-      const ext = path.extname(file.originalname);
-      cb(null, `prod_${Date.now()}_${Math.random().toString(36).slice(2, 6)}${ext}`);
-    }
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (/\.(jpg|jpeg|png|gif|webp)$/i.test(path.extname(file.originalname))) return cb(null, true);
-    cb(new Error('Seulement les images (jpg, png, gif, webp)'));
+    cb(new Error('Seulement jpg, png, gif, webp.'));
   }
 });
 
 app.post('/api/upload/product-image', authMiddleware, productUpload.single('image'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
-    const url = `/uploads/products/${req.file.filename}`;
-    res.json({ success: true, url, filename: req.file.filename });
+
+    const { uploadProductImage } = await import('./lib/supabase.js');
+    const url = await uploadProductImage(req.file.buffer, req.file.originalname, req.file.mimetype);
+
+    if (!url) return res.status(500).json({ error: 'Erreur upload storage.' });
+    res.json({ success: true, url });
   } catch (err) {
     res.status(500).json({ error: 'Erreur upload image.' });
   }

@@ -454,16 +454,13 @@ document.getElementById('prodSizeInput').addEventListener('keydown', e => { if (
 document.getElementById('prodImageUpload').addEventListener('change', async (e) => {
   const file = e.target.files[0]; if (!file) return;
   try {
-    // Convertir en base64 pour stockage permanent dans Supabase
-    const reader = new FileReader();
-    reader.onload = function(ev) {
-      document.getElementById('prodImage').value = ev.target.result;
-      document.getElementById('prodImagePreview').classList.remove('hidden');
-      document.getElementById('prodImagePreviewImg').src = ev.target.result;
-      showSuccess('✅ Image chargée !');
-    };
-    reader.readAsDataURL(file);
-  } catch(err) { showError('Erreur chargement image'); }
+    const fd = new FormData(); fd.append('image', file);
+    const data = await apiUpload('/api/upload/product-image', fd);
+    document.getElementById('prodImage').value = data.url;
+    document.getElementById('prodImagePreview').classList.remove('hidden');
+    document.getElementById('prodImagePreviewImg').src = data.url;
+    showSuccess('✅ Image uploadée !');
+  } catch(err) { showError('Erreur upload: ' + err.message); }
 });
 
 document.getElementById('prodImage').addEventListener('input', function() {
