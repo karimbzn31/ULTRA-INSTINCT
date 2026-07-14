@@ -159,38 +159,7 @@
         </div>
       </div>
 
-      <!-- STATS -->
-      <div class="section-card">
-        <h2 class="text-lg font-semibold text-white mb-4">📊 Statistiques</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div class="text-center p-4 bg-white/5 rounded-xl">
-            <div class="text-2xl font-bold text-white" id="statMessages">0</div>
-            <div class="text-xs text-purple-300/70">Messages traités</div>
-          </div>
-          <div class="text-center p-4 bg-white/5 rounded-xl">
-            <div class="text-2xl font-bold text-white" id="statOrders">0</div>
-            <div class="text-xs text-purple-300/70">Commandes</div>
-          </div>
-          <div class="text-center p-4 bg-white/5 rounded-xl">
-            <div class="text-2xl font-bold text-white" id="statCreated">—</div>
-            <div class="text-xs text-purple-300/70">Créé le</div>
-          </div>
-          <div class="text-center p-4 bg-white/5 rounded-xl">
-            <div class="text-2xl font-bold text-white" id="statUpdated">—</div>
-            <div class="text-xs text-purple-300/70">Modifié le</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="text-right pb-4">
-        <a href="/admin/clients" class="btn-secondary text-sm">← Liste clients</a>
-      </div>
-
-    </div>
-  </main>
-</div>
-
-<!-- MODAL CREATION PRODUIT (WIZARD) -->
+      <!-- MODAL CREATION PRODUIT (WIZARD) -->
 <div id="productModal" class="fixed inset-0 z-50 flex items-center justify-center hidden">
   <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeProductModal()"></div>
   <div class="relative bg-[#1a0a2e] border border-white/10 rounded-2xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto shadow-2xl">
@@ -485,12 +454,16 @@ document.getElementById('prodSizeInput').addEventListener('keydown', e => { if (
 document.getElementById('prodImageUpload').addEventListener('change', async (e) => {
   const file = e.target.files[0]; if (!file) return;
   try {
-    const fd = new FormData(); fd.append('image', file);
-    const data = await apiUpload('/api/upload/product-image', fd);
-    document.getElementById('prodImage').value = data.url;
-    document.getElementById('prodImagePreview').classList.remove('hidden');
-    document.getElementById('prodImagePreviewImg').src = data.url;
-  } catch(err) { showError('Erreur upload'); }
+    // Convertir en base64 pour stockage permanent dans Supabase
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      document.getElementById('prodImage').value = ev.target.result;
+      document.getElementById('prodImagePreview').classList.remove('hidden');
+      document.getElementById('prodImagePreviewImg').src = ev.target.result;
+      showSuccess('✅ Image chargée !');
+    };
+    reader.readAsDataURL(file);
+  } catch(err) { showError('Erreur chargement image'); }
 });
 
 document.getElementById('prodImage').addEventListener('input', function() {

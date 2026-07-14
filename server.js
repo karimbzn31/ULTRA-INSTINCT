@@ -153,7 +153,7 @@ app.use(express.urlencoded({ extended: true }));
 // Static files
 app.use('/assets', express.static(path.join(__dirname, 'views', 'assets')));
 app.use('/uploads', express.static(UPLOAD_DIR));
-app.use('/uploads/products', express.static(path.join(__dirname, 'uploads', 'products')));
+app.use('/uploads/products', express.static(PRODUCTS_UPLOAD_DIR));
 
 // ─── Auth middleware ────────────────────────────────────────
 function authMiddleware(req, res, next) {
