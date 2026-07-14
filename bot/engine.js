@@ -111,26 +111,40 @@ export async function generateReply(clientId, platform, senderId, messageType, c
     // 12. Mettre à jour les stats
     await updateStats(clientId);
 
-    // 13. ENVOI D'IMAGES : détection flexible
+    // 13. ENVOI D'IMAGES : UNIQUEMENT si le client demande explicitement
     if (client.catalog && client.catalog.length > 0 && replyText) {
-      const replyLower = replyText.toLowerCase();
-      const askedForPics = /image|photo|montre|voir|affiche/i.test(content || '');
+      const askedForPics = /image|photo|montre|voir|affiche|pic|img|montre-moi/i.test(content || '');
 
-      for (const product of client.catalog) {
-        if (!product.colors || product.colors.length === 0) continue;
-        const pName = product.name.toLowerCase();
-        const words = pName.split(/\s+/).filter(w => w.length > 2);
+      if (askedForPics) {
+        // Le client veut voir des produits → chercher lequel dans la réponse
+        const replyLower = replyText.toLowerCase();
+        let maxImages = 2; // Max 2 images par réponse
 
-        let found = askedForPics; // Si demande explicite → tous les produits
-        if (!found) {
-          found = words.some(w => replyLower.includes(w)) || replyLower.includes(pName);
+        for (const product of client.catalog) {
+          if (maxImages <= 0) break;
+          if (!product.colors || product.colors.length === 0) continue;
+
+          const pName = product.name.toLowerCase();
+          const words = pName.split(/\s+/).filter(w => w.length > 2);
+          const found = words.some(w => replyLower.includes(w)) || replyLower.includes(pName);
+
+          if (found) {
+            for (const color of product.colors) {
+              if (maxImages <= 0) break;
+              const img = typeof color === 'string' ? '' : (color.image || '');
+              if (img && !imagesToSend.includes(img)) {
+                imagesToSend.push(img);
+                maxImages--;
+              }
+            }
+          }
         }
 
-        if (found) {
-          for (const color of product.colors) {
-            const img = typeof color === 'string' ? '' : (color.image || '');
-            if (img && !imagesToSend.includes(img)) imagesToSend.push(img);
-          }
+        // Si aucun produit spécifique trouvé, envoyer 1 seule image du 1er produit
+        if (imagesToSend.length === 0 && client.catalog[0]?.colors) {
+          const firstImg = typeof client.catalog[0].colors[0] === 'string'
+            ? '' : (client.catalog[0].colors[0]?.image || '');
+          if (firstImg) imagesToSend.push(firstImg);
         }
       }
     }
@@ -184,6 +198,7 @@ function buildSystemPrompt(client) {
   parts.push('REGLE 1 - Premier message seulement : "Bonjour [prénom] ! Moi c\'est [ton prénom], commercial(e) chez [nom de la boutique]. Comment puis-je t\'aider ?"');
   parts.push('REGLES 2 - Après le premier message : Ne te présente PLUS. Réponds directement et simplement.');
   parts.push('Sois poli(e) mais pas trop longue. Va droit au but.');
+  parts.push('Si le client DEMANDE à voir un produit, cite le NOM EXACT du produit dans ta réponse (ex: "Chemise Premium") pour que je puisse lui montrer la photo.');
   parts.push('Exemple réponse normale : "Oui, la Chemise Premium est à 4500 DZD en blanc et noir."');
 
   return parts.join('\n');
