@@ -110,21 +110,35 @@ export async function generateReply(clientId, platform, senderId, messageType, c
     // 12. Mettre à jour les stats
     await updateStats(clientId);
 
-    // 13. Chercher les images via le tag [IMAGE:NomDuProduit]
-    const replyClean = typeof reply === 'string' ? reply : (reply?.text || '');
-    const imageMatch = replyClean.match(/\[IMAGE:([^\]]+)\]/i);
-    if (imageMatch && client.catalog) {
-      const productName = imageMatch[1].trim().toLowerCase();
-      const product = client.catalog.find(p => p.name.toLowerCase() === productName);
-      if (product && product.colors) {
-        for (const color of product.colors) {
-          const img = typeof color === 'string' ? '' : (color.image || '');
-          if (img && !imagesToSend.includes(img)) imagesToSend.push(img);
+    // 13. DÉTECTION INTELLIGENTE : quel produit DeepSeek mentionne-t-il ?
+
+
+    if (client.catalog && client.catalog.length > 0 && replyText) {
+      const replyLower = replyText.toLowerCase();
+
+      // Chercher chaque produit du catalogue dans la réponse
+      for (const product of client.catalog) {
+        const productNameLower = product.name.toLowerCase();
+        const productWords = productNameLower.split(/\s+/);
+
+        // Vérifier si le nom du produit est mentionné (complet ou mots-clés)
+        const isMentioned = productWords.length > 1
+          ? productWords.every(word => word.length > 2 && replyLower.includes(word))
+          : replyLower.includes(productNameLower);
+
+        if (isMentioned && product.colors) {
+          for (const color of product.colors) {
+            const img = typeof color === 'string' ? '' : (color.image || '');
+            if (img && !imagesToSend.includes(img)) {
+              imagesToSend.push(img);
+              console.log(`[Bot] ✅ Image trouvee pour: ${product.name}`);
+            }
+          }
         }
       }
     }
 
-    return { text: replyClean.replace(/\[IMAGE:[^\]]+\]/g, '').trim(), images: imagesToSend };
+    return { text: replyText, images: imagesToSend };
   } catch (err) {
     console.error(`[Bot] Erreur pour client ${clientId}:`, err.message);
     return { text: "Désolée, une erreur technique est survenue. Réessaie plus tard. 😊", images: [] };
@@ -165,7 +179,7 @@ function buildSystemPrompt(client) {
     });
 
     parts.push('\n🚫 RÈGLE ABSOLUE : Tu ne vends QUE les produits listés ci-dessus. Si un client demande un produit qui n\'est pas dans la liste, dis-lui que tu ne l\'as pas. N\'invente RIEN.');
-    parts.push('\n🖼️ RÈGLE IMAGE : Quand tu parles d\'un produit, ajoute à la fin de ta réponse : [IMAGE:NOM_DU_PRODUIT]. Exemple : "Voici notre chemise premium à 4500 DZD [IMAGE:Chemise Premium]". N\'ajoute [IMAGE:...] que pour les produits qui existent dans la liste.');
+    parts.push('\n🖼️ Tu peux envoyer les photos des produits si le client le demande.');
   }
 
   // 3. Règles de collecte
