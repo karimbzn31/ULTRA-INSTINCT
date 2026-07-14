@@ -75,24 +75,24 @@ export async function generateReply(clientId, platform, senderId, messageType, c
       } else {
         mediaDescription = "\n[L'utilisateur a envoyé une image mais je n'ai pas pu l'analyser. Demande-lui de décrire.]";
       }
-      reply = await callLLM(history, systemPrompt + mediaDescription, apiKey, model);
+      reply = await callLLM(history, systemPrompt + mediaDescription, apiKey, model, client.catalog);
 
     } else if (messageType === 'audio') {
-      // Audio → Transcription Whisper puis DeepSeek
+      // Audio → Transcription Gemini puis DeepSeek
       console.log('[Bot] 🎤 Transcription audio...');
       const geminiKey = client.gemini_api_key || client.api_key || process.env.GOOGLE_AI_API_KEY || '';
       const transcription = await transcribeAudio(attachmentUrl, geminiKey);
       if (transcription) {
         mediaDescription = `\n[L'utilisateur a envoyé un message vocal. Transcription : "${transcription}"]`;
-        console.log('[Bot] ✅ Audio transcrit par Whisper');
+        console.log('[Bot] ✅ Audio transcrit par Gemini');
       } else {
         mediaDescription = "\n[L'utilisateur a envoyé un message vocal mais je n'ai pas pu le transcrire. Demande-lui d'écrire.]";
       }
-      reply = await callLLM(history, systemPrompt + mediaDescription, apiKey, model);
+      reply = await callLLM(history, systemPrompt + mediaDescription, apiKey, model, client.catalog);
 
     } else {
       // Texte → DeepSeek directement
-      reply = await callLLM(history, systemPrompt, apiKey, model);
+      reply = await callLLM(history, systemPrompt, apiKey, model, client.catalog);
     }
 
     // 9. Ajouter la réponse à l'historique
@@ -160,16 +160,36 @@ function buildSystemPrompt(client) {
 }
 
 // ─── Appel LLM (DeepSeek via OpenCode Zen) ────────────────
-async function callLLM(history, systemPrompt, apiKey, model) {
+async function callLLM(history, systemPrompt, apiKey, model, catalog) {
   if (!apiKey) {
     return "Le service n'est pas configuré. Contacte l'administrateur.";
   }
 
   try {
     const messages = [{ role: 'system', content: systemPrompt }];
+
+    // Ajouter les messages d'historique
     for (const msg of history) {
       if (msg.role !== 'system') {
         messages.push({ role: msg.role, content: msg.content });
+      }
+    }
+
+    // ⚠️ INSTRUCTION ULTIME : coller le catalogue juste avant la réponse
+    if (catalog && catalog.length > 0) {
+      const lastUserIdx = messages.length - 1;
+      // Ajouter un message système juste avant le dernier message utilisateur
+      const productNames = catalog.map(p => `- ${p.name} (${p.price} DZD)`).join('\n');
+      const stockWarning = '🚫 Ne propose PAS d\'autres produits. Ne invente RIEN.';
+      const strictInstruction = `\n\n⚠️ RÈGLE STRICTE : Voici les SEULS produits disponibles :\n${productNames}\n${stockWarning}\n`;
+
+      // On ajoute l'instruction au dernier message système ou utilisateur
+      if (messages.length > 0) {
+        const lastMsg = messages[messages.length - 1];
+        if (lastMsg.role === 'user') {
+          lastMsg.content += strictInstruction;
+          console.log('[Bot] ✅ Catalogue injecté dans le message utilisateur');
+        }
       }
     }
 
@@ -178,8 +198,7 @@ async function callLLM(history, systemPrompt, apiKey, model) {
       {
         model,
         messages,
-        temperature: 0.7,
-      },
+        temperature: 0.3, // Basse température = moins d'invention, plus de rigueur
       {
         headers: {
           'Authorization': `Bearer ${apiKey}`,
