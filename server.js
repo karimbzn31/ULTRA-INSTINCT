@@ -22,6 +22,9 @@ import {
 // ─── Connecteurs ────────────────────────────────────────────
 import { verifyWebhook, handleIncoming } from './connectors/index.js';
 
+// ─── Queue worker (file d'attente messages) ────────────────
+import { processNext } from './queue/worker.js';
+
 // ─── Config ────────────────────────────────────────────────
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3580;
@@ -342,6 +345,28 @@ app.post('/api/upload/catalog', authMiddleware, upload.single('catalog'), async 
 // ─── Webhook Meta (Messenger + Instagram) ──────────────
 app.get('/webhook', verifyWebhook);
 app.post('/webhook', handleIncoming);
+
+// ─── Queue Worker — Traite les messages en file d'attente ──
+// Appelé automatiquement par le webhook après enfilement.
+// Peut aussi être appelé manuellement pour déboguer.
+app.post('/api/process-queue', async (req, res) => {
+  const MAX_ITEMS = 1; // 1 message par appel (sécurité timeout Vercel 10s)
+  let processed = 0;
+
+  try {
+    for (let i = 0; i < MAX_ITEMS; i++) {
+      const wasProcessed = await processNext();
+      if (!wasProcessed) break;
+      processed++;
+    }
+
+    console.log(`[Queue] 🏁 Invocation terminée: ${processed} message(s) traités`);
+    res.json({ processed, queue_empty: processed < MAX_ITEMS });
+  } catch (err) {
+    console.error('[Queue] ❌ Erreur process-queue:', err.message);
+    res.status(500).json({ error: err.message, processed });
+  }
+});
 
 // ─── Upload image produit vers Supabase Storage ──────────
 const productUpload = multer({

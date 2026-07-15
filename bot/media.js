@@ -8,7 +8,7 @@
 
 import axios from 'axios';
 
-const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 const OPENCODE_BASE = (process.env.OPENCODE_BASE_URL || 'https://opencode.ai/zen/v1').replace(/\/+$/, '');
@@ -157,7 +157,7 @@ export async function analyzeImage(imageUrl, geminiKey, catalog = [], metaToken 
   return null;
 }
 
-// ─── Transcription audio (Gemini uniquement - quota limité) ──
+// ─── Transcription audio (Gemini uniquement) ──
 export async function transcribeAudio(audioUrl, geminiKey, metaToken = '') {
   // 1. Télécharger l'audio
   const audioBuffer = await downloadMedia(audioUrl, metaToken);
@@ -170,7 +170,7 @@ export async function transcribeAudio(audioUrl, geminiKey, metaToken = '') {
   const mimeType = getAudioMimeType(audioUrl);
   console.log(`[Media] 🎤 Audio téléchargé: ${(audioBuffer.length / 1024).toFixed(1)} KB (${mimeType})`);
 
-  // 2. Gemini (le seul qui gère l'audio)
+  // 2. Gemini
   if (geminiKey) {
     try {
       const response = await axios.post(
@@ -196,13 +196,12 @@ export async function transcribeAudio(audioUrl, geminiKey, metaToken = '') {
       const geminiErr = err.response?.data?.error?.message || err.message;
       console.error('[Media] ❌ Gemini audio échoué:', geminiErr);
 
-      // Si quota dépassé, on log juste
       if (err.response?.status === 429) {
-        console.error('[Media] ⚠️ Quota Gemini épuisé - audio non disponible');
+        console.error('[Media] ⚠️ Quota Gemini épuisé');
       }
     }
   } else {
-    console.warn('[Media] ⚠️ Pas de clé Gemini → transcription audio impossible');
+    console.warn('[Media] ⚠️ Pas de clé Gemini');
   }
 
   return null;
