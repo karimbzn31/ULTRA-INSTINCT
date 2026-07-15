@@ -1,14 +1,15 @@
 // ============================================================
 // ⚡ ULTRA INSTINCT — Connecteur Meta (Messenger + Instagram)
 // ============================================================
-// ⚡ VERSION V2 — File d'attente !
-// Le webhook répond en <50ms (insert queue) puis le worker
-// s'occupe du traitement LLM + envoi en arrière-plan.
-// Terminé les timeouts Vercel !
+// ⚡ VERSION V3 — Hybride : direct + queue sécurité
+// 1. Enfile le message dans la queue (safety net anti-timeout)
+// 2. Traite le message DIRECTEMENT (réponse rapide)
+// 3. Si Vercel tue la fonction → queue rattrape au prochain msg
 // ============================================================
 
 import { supabase } from '../lib/supabase.js';
-import { enqueue } from '../queue/index.js';
+import { enqueue, markDone, markFailed } from '../queue/index.js';
+import { generateReply } from '../bot/engine.js';
 import axios from 'axios';
 
 const GRAPH_BASE = `https://graph.facebook.com/${process.env.META_API_VERSION || 'v22.0'}`;
@@ -26,7 +27,7 @@ export async function verifyWebhook(req, res) {
   res.status(403).send('Verification failed');
 }
 
-// ─── 2. RÉCEPTION DES MESSAGES (POST) — ⚡ ULTRARAPIDE ──
+// ─── 2. RÉCEPTION DES MESSAGES (POST) — ⚡ HYBRIDE ⚡ ──
 export async function handleIncoming(req, res) {
   try {
     const body = req.body;
@@ -34,52 +35,47 @@ export async function handleIncoming(req, res) {
       return res.status(200).send('EVENT_RECEIVED');
     }
 
-    let hasWork = false;
-
     for (const entry of body.entry || []) {
       const pageId = entry.id;
       const events = entry.messaging || [];
 
       for (const event of events) {
-        const queued = await queueEvent(pageId, event);
-        if (queued) hasWork = true;
+        try {
+          await processEvent(pageId, event);
+        } catch (e) {
+          console.error('[Meta] Erreur event:', e.message);
+        }
       }
     }
 
-    // ✅ Lancer le worker en ARRIÈRE-PLAN avant de répondre
-    if (hasWork) {
-      fireWorker();
-    }
-
-    // ✅ Répondre IMMÉDIATEMENT
     res.status(200).send('EVENT_RECEIVED');
-
   } catch (err) {
     console.error('[Meta] Erreur webhook:', err.message);
-    // Même en erreur, Meta attend un 200
     if (!res.headersSent) res.status(200).send('EVENT_RECEIVED');
   }
 }
 
-// ─── 3. ENFILER UN ÉVÉNEMENT DANS LA QUEUE (ultra rapide) ──
-async function queueEvent(pageId, event) {
+// ─── 3. TRAITER UN ÉVÉNEMENT — DIRECT + QUEUE ───────────
+async function processEvent(pageId, event) {
   const senderId = event.sender?.id;
-  if (!senderId) return false;
-  if (event.message?.is_echo) return false;
-  if (!event.message && !event.postback) return false;
+  if (!senderId) return;
+  if (event.message?.is_echo) return;
+  if (!event.message && !event.postback) return;
 
-  // Chercher le client associé à cette Page Facebook
+  // Chercher le client
   const { data: client } = await supabase
     .from('clients')
-    .select('id, name, meta_token')
+    .select('*')
     .eq('meta_page_id', pageId)
     .eq('active', true)
     .maybeSingle();
 
   if (!client) {
     console.log(`[Meta] ⚠️ Aucun client actif pour page ${pageId}`);
-    return false;
+    return;
   }
+
+  console.log(`[Meta] ➡️ "${client.name}" (${senderId})`);
 
   // Extraire le message
   let type = 'text', content = '', attachmentUrl = null;
@@ -93,45 +89,85 @@ async function queueEvent(pageId, event) {
     if (a.type === 'image') { type = 'image'; content = '[Image]'; attachmentUrl = a.payload?.url; }
     else if (a.type === 'audio') { type = 'audio'; content = '[Audio]'; attachmentUrl = a.payload?.url; }
     else { content = `[${a.type}]`; }
-  } else { return false; }
+  } else { return; }
 
-  // Envoyer "vu" immédiat (fast, pas de LLM ici)
+  // Envoyer "vu" immédiat
   await markSeen(client.meta_token, senderId);
 
-  // Enfiler le message dans la queue
-  await enqueue(client.id, 'messenger', senderId, type, content, attachmentUrl);
-  console.log(`[Meta] 📥 "${client.name}" enfilé pour ${senderId}`);
+  // 1️⃣ Enfiler dans la queue (safety net)
+  const queueId = await enqueue(client.id, 'messenger', senderId, type, content, attachmentUrl);
 
-  return true;
-}
+  // 2️⃣ Traiter DIRECTEMENT (réponse rapide)
+  try {
+    const result = await generateReply(client.id, 'messenger', senderId, type, content, attachmentUrl);
 
-// ─── 4. DÉCLENCHER LE WORKER (fire-and-forget) ──────────────
-// Lance /api/process-queue dans une nouvelle fonction Vercel
-// sans l'attendre. Si ça rate, le prochain message relancera.
-function fireWorker() {
-  const baseUrl = process.env.BASE_URL;
-  if (!baseUrl) {
-    console.log('[Meta] ⚠️ BASE_URL non défini, worker non déclenché');
-    return;
-  }
+    if (result && result.text) {
+      // "typing..." avant la réponse
+      await typingOn(client.meta_token, senderId);
+      await sleep(500);
 
-  // Fire-and-forget : on ne bloque pas le webhook
-  fetch(`${baseUrl}/api/process-queue`, {
-    method: 'POST',
-    signal: AbortSignal.timeout(9000),
-  }).then(async res => {
-    const body = await res.text();
-    console.log(`[Meta] 🏁 Worker répondu: ${body}`);
-  }).catch(err => {
-    if (err.name === 'TimeoutError' || err.name === 'AbortError') {
-      console.log('[Meta] ⏱️ Worker timeout (normal pour une tâche longue)');
-    } else {
-      console.warn('[Meta] ⚠️ Échec trigger worker:', err.message);
+      // Envoyer le texte
+      await sendMessage(client.meta_token, senderId, result.text);
+
+      // Envoyer les images une par une
+      if (result.images && result.images.length > 0) {
+        for (const imgUrl of result.images) {
+          await sleep(300);
+          await sendImageMessage(client.meta_token, senderId, imgUrl);
+        }
+      }
+
+      // Marquer la queue comme traitée
+      if (queueId) await markDone(queueId);
     }
-  });
+  } catch (err) {
+    console.error(`[Meta] ❌ Erreur traitement direct:`, err.message);
+    // Pas grave — le message est dans la queue, le prochain déclenchement le traitera
+  }
 }
 
-// ─── 4. MARQUER COMME "VU" (mark_seen) ─────────────────────
+// ─── 4. ENVOYER UN MESSAGE TEXTE ────────────────────────
+async function sendMessage(token, recipient, text) {
+  if (!token || !recipient || !text) return;
+  try {
+    await axios.post(`${GRAPH_BASE}/me/messages`, {
+      recipient: { id: recipient },
+      message: { text: text.substring(0, 2000) },
+      messaging_type: 'RESPONSE',
+    }, {
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      timeout: 15000,
+    });
+    console.log(`[Meta] ✅ Texte envoyé`);
+  } catch (err) {
+    console.error(`[Meta] ❌ Envoi texte:`, err.response?.data?.error?.message || err.message);
+  }
+}
+
+// ─── 5. ENVOYER UNE IMAGE ──────────────────────────────
+async function sendImageMessage(token, recipient, imageUrl) {
+  if (!token || !recipient || !imageUrl) return;
+  try {
+    await axios.post(`${GRAPH_BASE}/me/messages`, {
+      recipient: { id: recipient },
+      message: {
+        attachment: {
+          type: 'image',
+          payload: { url: imageUrl, is_reusable: true }
+        }
+      },
+      messaging_type: 'RESPONSE',
+    }, {
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      timeout: 15000,
+    });
+    console.log(`[Meta] 🖼️ Image envoyée`);
+  } catch (err) {
+    console.error(`[Meta] ❌ Envoi image:`, err.response?.data?.error?.message || err.message);
+  }
+}
+
+// ─── 6. TYPING + SEEN ──────────────────────────────────
 async function markSeen(token, recipient) {
   if (!token || !recipient) return;
   try {
@@ -144,5 +180,20 @@ async function markSeen(token, recipient) {
     });
   } catch {}
 }
+
+async function typingOn(token, recipient) {
+  if (!token || !recipient) return;
+  try {
+    await axios.post(`${GRAPH_BASE}/me/messages`, {
+      recipient: { id: recipient },
+      sender_action: 'typing_on',
+    }, {
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      timeout: 5000,
+    });
+  } catch {}
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 export { markSeen };
