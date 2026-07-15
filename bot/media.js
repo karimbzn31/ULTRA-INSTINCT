@@ -150,10 +150,8 @@ async function analyzeImageFallback(imageUrl, apiKey, metaToken) {
   }
 }
 
-// ─── Transcription audio avec MiMo (OpenCode) + fallback Gemini ──
-export async function transcribeAudio(audioUrl, apiKey, geminiKey, metaToken = '') {
-  const key = apiKey || GLOBAL_API_KEY;
-
+// ─── Transcription audio avec Gemini (le seul qui gere l'audio) ──
+export async function transcribeAudio(audioUrl, geminiKey, metaToken = '') {
   // 1. Télécharger l'audio (avec token Meta si Messenger)
   let audioBuffer;
   try {
@@ -173,7 +171,7 @@ export async function transcribeAudio(audioUrl, apiKey, geminiKey, metaToken = '
     return null;
   }
 
-  if (!audioBuffer || audioBuffer.length < 100) {
+  if (!audioBuffer || audioBuffer.length < 200) {
     console.warn('[Media] ⚠️ Audio vide ou trop petit');
     return null;
   }
@@ -182,70 +180,34 @@ export async function transcribeAudio(audioUrl, apiKey, geminiKey, metaToken = '
   const mimeType = getAudioMimeType(audioUrl);
   console.log(`[Media] 🎤 Audio téléchargé: ${(audioBuffer.length / 1024).toFixed(1)} KB (${mimeType})`);
 
-  // 2. Essayer MiMo (vision + audio via OpenCode)
-  if (key) {
-    try {
-      const response = await axios.post(
-        `${OPENCODE_BASE}/chat/completions`,
-        {
-          model: 'mimo-v2.5-free',
-          messages: [{
-            role: 'user',
-            content: [
-              { type: 'text', text: 'Transcris précisément ce message vocal en texte. Réponds UNIQUEMENT avec la transcription, rien d\'autre.' },
-              { type: 'image_url', image_url: { url: `data:${mimeType};base64,${audioBase64}` } }
-            ]
-          }],
-          max_tokens: 512,
-          temperature: 0.1,
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${key}`,
-            'Content-Type': 'application/json',
-          },
-          timeout: 30000,
-        }
-      );
-
-      const text = response?.data?.choices?.[0]?.message?.content
-        || response?.data?.choices?.[0]?.message?.reasoning
-        || '';
-
-      if (text && text.trim() && text.trim().length > 2) {
-        console.log(`[Media] ✅ Audio transcrit par MiMo: "${text.substring(0, 80)}..."`);
-        return text.trim();
-      }
-    } catch (err) {
-      console.warn('[Media] ⚠️ MiMo audio échoué, fallback Gemini:', err.message?.substring(0, 60));
-    }
-  }
-
-  // 3. Fallback : Gemini
+  // 2. Essayer Gemini (le SEUL qui supporte l'audio nativement)
   if (geminiKey) {
     try {
+      // Gemini 2.0 Flash supporte l'audio inline
       const response = await axios.post(
         `${GEMINI_BASE}/${GEMINI_MODEL}:generateContent?key=${geminiKey}`,
         {
           contents: [{
             parts: [
-              { text: "Transcris précisément ce message vocal en texte. Ne rajoute rien d'autre que la transcription." },
+              { text: "Transcris précisément ce message vocal en texte. Réponds UNIQUEMENT avec la transcription, rien d'autre." },
               { inline_data: { mime_type: mimeType, data: audioBase64 } }
             ]
           }],
-          generationConfig: { temperature: 0.1 }
+          generationConfig: { temperature: 0.1, maxOutputTokens: 512 }
         },
         { timeout: 30000 }
       );
 
       const text = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-      if (text) {
+      if (text && text.length > 1) {
         console.log(`[Media] ✅ Audio transcrit par Gemini: "${text.substring(0, 80)}..."`);
         return text;
       }
     } catch (err) {
-      console.warn('[Media] ⚠️ Gemini audio échoué:', err.message?.substring(0, 60));
+      console.warn('[Media] ⚠️ Gemini audio échoué:', err.response?.data?.error?.message || err.message?.substring(0, 80));
     }
+  } else {
+    console.warn('[Media] ⚠️ Clé Gemini manquante pour audio');
   }
 
   console.warn('[Media] ❌ Aucune transcription possible');
