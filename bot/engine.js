@@ -130,7 +130,7 @@ export async function generateReply(clientId, platform, senderId, messageType, c
       reply = await callLLM(history, systemPrompt + mediaDescription, apiKey, model, client.catalog);
 
     } else if (messageType === 'audio') {
-      // Audio → Transcription via MiMo (ou Gemini en fallback)
+      // Audio → Transcription Gemini
       console.log('[Bot] 🎤 Transcription audio...');
       const metaToken = client.meta_token || '';
       const geminiKey = client.gemini_api_key || process.env.GOOGLE_AI_API_KEY || '';
@@ -138,16 +138,12 @@ export async function generateReply(clientId, platform, senderId, messageType, c
       if (transcription) {
         mediaDescription = `\n---\n🎤 L'utilisateur a envoyé un message vocal. Transcription : "${transcription}"\n---`;
         console.log('[Bot] ✅ Audio transcrit');
+        reply = await callLLM(history, systemPrompt + mediaDescription, apiKey, model, client.catalog);
       } else {
-        // Message naturel : pas d'instruction "dis que tu peux pas"
-        // Le LLM est assez intelligent pour gérer ça tout seul
-        const hint = geminiKey
-          ? "\n---\n🎤 L'utilisateur a envoyé un message vocal mais la transcription a échoué.\n"
-          : "\n---\n🎤 L'utilisateur a envoyé un message vocal.\n";
-        mediaDescription = hint + "Réponds naturellement comme le ferait un commercial à qui on envoie un vocal.\n---";
-        if (!geminiKey) console.log('[Bot] ⚠️ Pas de clé Gemini → transcription impossible');
+        // Pas de transcription → message NATUREL direct, pas via LLM
+        console.log('[Bot] ⚠️ Transcription impossible, reponse naturelle');
+        reply = "Merci pour ton message vocal ! 😊 Je n'ai pas pu l'écouter, tu peux m'écrire ce dont tu as besoin stp ?";
       }
-      reply = await callLLM(history, systemPrompt + mediaDescription, apiKey, model, client.catalog);
 
     } else {
       // Texte → DeepSeek directement

@@ -20,7 +20,7 @@ export async function analyzeImage(imageUrl, geminiKey, catalog = [], metaToken 
   // 1. Télécharger l'image
   let imageBuffer;
   try {
-    if (metaToken && (imageUrl.includes('facebook.com') || imageUrl.includes('fbcdn.net'))) {
+    if (metaToken && (imageUrl.includes('facebook.com') || imageUrl.includes('fbcdn.net') || imageUrl.includes('fbsbx.com'))) {
       const fbRes = await axios.get(imageUrl, {
         responseType: 'arraybuffer',
         headers: { 'Authorization': `OAuth ${metaToken}` },
@@ -139,7 +139,7 @@ export async function transcribeAudio(audioUrl, geminiKey, metaToken = '') {
   // 1. Télécharger l'audio (avec token Meta si Messenger)
   let audioBuffer;
   try {
-    if (metaToken && (audioUrl.includes('facebook.com') || audioUrl.includes('fbcdn.net'))) {
+    if (metaToken && (audioUrl.includes('facebook.com') || audioUrl.includes('fbcdn.net') || audioUrl.includes('fbsbx.com'))) {
       const fbRes = await axios.get(audioUrl, {
         responseType: 'arraybuffer',
         headers: { 'Authorization': `OAuth ${metaToken}` },
@@ -152,6 +152,7 @@ export async function transcribeAudio(audioUrl, geminiKey, metaToken = '') {
     }
   } catch (err) {
     console.error('[Media] ❌ Téléchargement audio échoué:', err.message);
+    console.error('[Media] ❌ URL:', audioUrl?.substring(0, 80) + '...');
     return null;
   }
 
@@ -188,7 +189,9 @@ export async function transcribeAudio(audioUrl, geminiKey, metaToken = '') {
         return text;
       }
     } catch (err) {
-      console.warn('[Media] ⚠️ Gemini audio échoué:', err.response?.data?.error?.message || err.message?.substring(0, 80));
+      const geminiErr = err.response?.data?.error?.message || err.message;
+      console.error('[Media] ❌ Gemini audio ERREUR COMPLETE:', geminiErr);
+      console.error('[Media] ❌ Status:', err.response?.status, '| Data:', JSON.stringify(err.response?.data).substring(0,200));
     }
   } else {
     console.warn('[Media] ⚠️ Clé Gemini manquante pour audio');
@@ -212,6 +215,9 @@ function getAudioMimeType(url = '') {
   if (url.includes('.wav')) return 'audio/wav';
   if (url.includes('.ogg')) return 'audio/ogg';
   if (url.includes('.m4a')) return 'audio/mp4';
+  if (url.includes('.webm')) return 'audio/webm';
+  // Messenger/Instagram audio : URLs sans extension, typiquement OGG
+  if (url.includes('cdn.fbsbx.com') || url.includes('facebook.com') || url.includes('fbcdn')) return 'audio/ogg';
   return 'audio/mpeg';
 }
 
