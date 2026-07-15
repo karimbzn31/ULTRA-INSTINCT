@@ -1,9 +1,9 @@
 // ============================================================
 // ⚡ ULTRA INSTINCT — Gestion des médias (Images + Audio)
 // ============================================================
-// Images  → Gemini 2.0 Flash (vision IA, prioritaire)
-// Audio   → Gemini 2.0 Flash (transcription)
-// Fallback vision → MiMo V2.5 Free (OpenCode Zen)
+// Images  → MiMo V2.5 Free via OpenCode (pas de quota limit)
+// Audio   → Gemini 2.0 Flash (si quota dispo)
+// Fallback → Message naturel si échec
 // ============================================================
 
 import axios from 'axios';
@@ -11,58 +11,131 @@ import axios from 'axios';
 const GEMINI_MODEL = 'gemini-2.0-flash';
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
-// ─── OpenCode (MiMo Vision) config pour fallback ────────────
 const OPENCODE_BASE = (process.env.OPENCODE_BASE_URL || 'https://opencode.ai/zen/v1').replace(/\/+$/, '');
 const GLOBAL_API_KEY = process.env.OPENCODE_API_KEY || '';
 
-// ─── Analyse d'image AVEC GEMINI (prioritaire) ────────────
-export async function analyzeImage(imageUrl, geminiKey, catalog = [], metaToken = '') {
-  // 1. Télécharger l'image
-  let imageBuffer;
+// ─── Téléchargement d'un média (image ou audio) ─────────
+async function downloadMedia(url, metaToken) {
   try {
-    if (metaToken && (imageUrl.includes('facebook.com') || imageUrl.includes('fbcdn.net') || imageUrl.includes('fbsbx.com'))) {
-      const fbRes = await axios.get(imageUrl, {
+    const isMeta = metaToken && (url.includes('facebook.com') || url.includes('fbcdn.net') || url.includes('fbsbx.com'));
+    if (isMeta) {
+      const fbRes = await axios.get(url, {
         responseType: 'arraybuffer',
         headers: { 'Authorization': `OAuth ${metaToken}` },
-        timeout: 15000,
+        timeout: 20000,
       });
-      imageBuffer = Buffer.from(fbRes.data);
+      return Buffer.from(fbRes.data);
     } else {
-      const res = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 15000 });
-      imageBuffer = Buffer.from(res.data);
+      const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 20000 });
+      return Buffer.from(res.data);
     }
   } catch (err) {
-    console.error('[Media] ❌ Téléchargement image échoué:', err.message);
+    console.error('[Media] ❌ Téléchargement échoué:', err.message);
+    return null;
+  }
+}
+
+function getMimeType(url = '') {
+  if (url.includes('.jpg') || url.includes('.jpeg')) return 'image/jpeg';
+  if (url.includes('.png')) return 'image/png';
+  if (url.includes('.gif')) return 'image/gif';
+  if (url.includes('.webp')) return 'image/webp';
+  if (url.includes('.svg')) return 'image/svg+xml';
+  if (url.includes('cdn.fbsbx.com') || url.includes('facebook.com') || url.includes('fbcdn')) return 'image/jpeg';
+  return 'image/jpeg';
+}
+
+function getAudioMimeType(url = '') {
+  if (url.includes('.mp3')) return 'audio/mpeg';
+  if (url.includes('.wav')) return 'audio/wav';
+  if (url.includes('.ogg')) return 'audio/ogg';
+  if (url.includes('.m4a')) return 'audio/mp4';
+  if (url.includes('.webm')) return 'audio/webm';
+  if (url.includes('cdn.fbsbx.com') || url.includes('facebook.com') || url.includes('fbcdn')) return 'audio/ogg';
+  return 'audio/mpeg';
+}
+
+// ─── Construire le contexte catalogue ────────────────────
+function buildCatalogContext(catalog) {
+  if (!catalog || catalog.length === 0) return '';
+  let ctx = '\n\n📦 Catalogue disponible :\n';
+  catalog.forEach(p => {
+    ctx += `- ${p.name}: ${p.price} DZD`;
+    if (p.colors) ctx += `, couleurs: ${p.colors.map(c => typeof c === 'string' ? c : c.name).join(', ')}`;
+    if (p.sizes) ctx += `, tailles: ${p.sizes.join(', ')}`;
+    if (p.description) ctx += ` — ${p.description}`;
+    ctx += '\n';
+  });
+  ctx += '\nÀ quel produit du catalogue cela correspond-il ? Si ça ne correspond à rien, dis ce que tu vois.';
+  return ctx;
+}
+
+// ─── Analyse d'image AVEC MiMo V2.5 (pas de quota, OpenCode) ──
+export async function analyzeImage(imageUrl, geminiKey, catalog = [], metaToken = '') {
+  const apiKey = GLOBAL_API_KEY;
+  if (!apiKey) {
+    console.warn('[Media] ⚠️ Aucune clé API pour MiMo Vision');
+    return null;
+  }
+
+  // 1. Télécharger l'image
+  const imageBuffer = await downloadMedia(imageUrl, metaToken);
+  if (!imageBuffer || imageBuffer.length < 100) {
+    console.warn('[Media] ⚠️ Image vide ou trop petite');
     return null;
   }
 
   const base64Data = imageBuffer.toString('base64');
   const mimeType = getMimeType(imageUrl);
+  const catalogCtx = buildCatalogContext(catalog);
+  const prompt = 'Analyse cette image en détail.' + catalogCtx;
 
-  // 2. Essayer GEMINI en premier
+  // 2. MiMo V2.5 (vision native, pas de quota gratuit)
+  try {
+    const response = await axios.post(
+      `${OPENCODE_BASE}/chat/completions`,
+      {
+        model: 'mimo-v2.5-free',
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Data}` } }
+          ]
+        }],
+        max_tokens: 1024,
+        temperature: 0.3,
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 30000,
+      }
+    );
+
+    const text = response?.data?.choices?.[0]?.message?.content
+      || response?.data?.choices?.[0]?.message?.reasoning
+      || '';
+
+    if (text && text.trim()) {
+      console.log(`[Media] ✅ Image analysée par MiMo: "${text.substring(0, 80)}..."`);
+      return text;
+    }
+  } catch (err) {
+    console.warn('[Media] ⚠️ MiMo vision échoué:', err.response?.data?.error?.message || err.message?.substring(0, 60));
+  }
+
+  // 3. Fallback: Gemini (si quota pas epuisé)
   if (geminiKey) {
     try {
-      let prompt = 'Décris cette image en détail. Que vois-tu ?';
-
-      // Ajouter le catalogue si disponible (Gemini peut analyser + comparer)
-      if (catalog && catalog.length > 0) {
-        prompt = 'Analyse cette image. Voici notre catalogue produit :\n';
-        catalog.forEach(p => {
-          prompt += `- ${p.name}: ${p.price} DZD`;
-          if (p.colors) prompt += `, couleurs: ${p.colors.map(c => typeof c === 'string' ? c : c.name).join(', ')}`;
-          if (p.sizes) prompt += `, tailles: ${p.sizes.join(', ')}`;
-          if (p.description) prompt += ` — ${p.description}`;
-          prompt += '\n';
-        });
-        prompt += '\nDis à quel produit du catalogue correspond cette image. Si ça ne correspond à aucun produit, décris ce que tu vois.';
-      }
-
       const response = await axios.post(
         `${GEMINI_BASE}/${GEMINI_MODEL}:generateContent?key=${geminiKey}`,
         {
           contents: [{
             parts: [
-              { text: prompt },
+              { text: 'Décris cette image en détail.' + catalogCtx },
               { inline_data: { mime_type: mimeType, data: base64Data } }
             ]
           }],
@@ -73,89 +146,21 @@ export async function analyzeImage(imageUrl, geminiKey, catalog = [], metaToken 
 
       const text = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (text) {
-        console.log(`[Media] ✅ Image analysée par Gemini: "${text.substring(0, 80)}..."`);
+        console.log(`[Media] ✅ Image analysée par Gemini (fallback): "${text.substring(0, 80)}..."`);
         return text;
       }
     } catch (err) {
-      console.warn('[Media] ⚠️ Gemini vision échoué:', err.response?.data?.error?.message || err.message?.substring(0, 80));
-    }
-  }
-
-  // 3. Fallback : MiMo Vision (OpenCode)
-  const key = GLOBAL_API_KEY;
-  if (key) {
-    try {
-      let catalogContext = '';
-      if (catalog && catalog.length > 0) {
-        catalogContext = '\n\nCatalogue produits :\n';
-        catalog.forEach(p => {
-          catalogContext += `- ${p.name}: ${p.price} DZD`;
-          if (p.colors) catalogContext += `, couleurs: ${p.colors.map(c => typeof c === 'string' ? c : c.name).join(', ')}`;
-          if (p.sizes) catalogContext += `, tailles: ${p.sizes.join(', ')}`;
-          catalogContext += '\n';
-        });
-        catalogContext += '\nÀ quel produit du catalogue correspond cette image ?';
-      }
-
-      const response = await axios.post(
-        `${OPENCODE_BASE}/chat/completions`,
-        {
-          model: 'mimo-v2.5-free',
-          messages: [{
-            role: 'user',
-            content: [
-              { type: 'text', text: 'Analyse cette image.' + catalogContext },
-              { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Data}` } }
-            ]
-          }],
-          max_tokens: 1024,
-          temperature: 0.3,
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${key}`,
-            'Content-Type': 'application/json',
-          },
-          timeout: 30000,
-        }
-      );
-
-      const text = response?.data?.choices?.[0]?.message?.content
-        || response?.data?.choices?.[0]?.message?.reasoning || '';
-      if (text && text.trim()) {
-        console.log(`[Media] ✅ Image analysée par MiMo (fallback): "${text.substring(0, 80)}..."`);
-        return text;
-      }
-    } catch (err) {
-      console.warn('[Media] ⚠️ MiMo fallback échoué:', err.message?.substring(0, 60));
+      console.warn('[Media] ⚠️ Gemini fallback échoué:', err.message?.substring(0, 80));
     }
   }
 
   return null;
 }
 
-// ─── Transcription audio avec Gemini (le seul qui gere l'audio) ──
+// ─── Transcription audio (Gemini uniquement - quota limité) ──
 export async function transcribeAudio(audioUrl, geminiKey, metaToken = '') {
-  // 1. Télécharger l'audio (avec token Meta si Messenger)
-  let audioBuffer;
-  try {
-    if (metaToken && (audioUrl.includes('facebook.com') || audioUrl.includes('fbcdn.net') || audioUrl.includes('fbsbx.com'))) {
-      const fbRes = await axios.get(audioUrl, {
-        responseType: 'arraybuffer',
-        headers: { 'Authorization': `OAuth ${metaToken}` },
-        timeout: 20000,
-      });
-      audioBuffer = Buffer.from(fbRes.data);
-    } else {
-      const res = await axios.get(audioUrl, { responseType: 'arraybuffer', timeout: 20000 });
-      audioBuffer = Buffer.from(res.data);
-    }
-  } catch (err) {
-    console.error('[Media] ❌ Téléchargement audio échoué:', err.message);
-    console.error('[Media] ❌ URL:', audioUrl?.substring(0, 80) + '...');
-    return null;
-  }
-
+  // 1. Télécharger l'audio
+  const audioBuffer = await downloadMedia(audioUrl, metaToken);
   if (!audioBuffer || audioBuffer.length < 200) {
     console.warn('[Media] ⚠️ Audio vide ou trop petit');
     return null;
@@ -165,10 +170,9 @@ export async function transcribeAudio(audioUrl, geminiKey, metaToken = '') {
   const mimeType = getAudioMimeType(audioUrl);
   console.log(`[Media] 🎤 Audio téléchargé: ${(audioBuffer.length / 1024).toFixed(1)} KB (${mimeType})`);
 
-  // 2. Essayer Gemini (le SEUL qui supporte l'audio nativement)
+  // 2. Gemini (le seul qui gère l'audio)
   if (geminiKey) {
     try {
-      // Gemini 2.0 Flash supporte l'audio inline
       const response = await axios.post(
         `${GEMINI_BASE}/${GEMINI_MODEL}:generateContent?key=${geminiKey}`,
         {
@@ -190,38 +194,16 @@ export async function transcribeAudio(audioUrl, geminiKey, metaToken = '') {
       }
     } catch (err) {
       const geminiErr = err.response?.data?.error?.message || err.message;
-      console.error('[Media] ❌ Gemini audio ERREUR COMPLETE:', geminiErr);
-      console.error('[Media] ❌ Status:', err.response?.status, '| Data:', JSON.stringify(err.response?.data).substring(0,200));
+      console.error('[Media] ❌ Gemini audio échoué:', geminiErr);
+
+      // Si quota dépassé, on log juste
+      if (err.response?.status === 429) {
+        console.error('[Media] ⚠️ Quota Gemini épuisé - audio non disponible');
+      }
     }
   } else {
-    console.warn('[Media] ⚠️ Clé Gemini manquante pour audio');
+    console.warn('[Media] ⚠️ Pas de clé Gemini → transcription audio impossible');
   }
 
-  console.warn('[Media] ❌ Aucune transcription possible');
   return null;
-}
-
-// ─── Utilitaires ─────────────────────────────────────────
-function getMimeType(url = '') {
-  if (url.includes('.jpg') || url.includes('.jpeg')) return 'image/jpeg';
-  if (url.includes('.png')) return 'image/png';
-  if (url.includes('.gif')) return 'image/gif';
-  if (url.includes('.webp')) return 'image/webp';
-  return 'image/jpeg';
-}
-
-function getAudioMimeType(url = '') {
-  if (url.includes('.mp3')) return 'audio/mpeg';
-  if (url.includes('.wav')) return 'audio/wav';
-  if (url.includes('.ogg')) return 'audio/ogg';
-  if (url.includes('.m4a')) return 'audio/mp4';
-  if (url.includes('.webm')) return 'audio/webm';
-  // Messenger/Instagram audio : URLs sans extension, typiquement OGG
-  if (url.includes('cdn.fbsbx.com') || url.includes('facebook.com') || url.includes('fbcdn')) return 'audio/ogg';
-  return 'audio/mpeg';
-}
-
-async function urlToBase64(url) {
-  const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 15000 });
-  return Buffer.from(response.data).toString('base64');
 }
