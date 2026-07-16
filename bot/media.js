@@ -2,13 +2,14 @@
 // ⚡ ULTRA INSTINCT — Gestion des médias (Images + Audio)
 // ============================================================
 // Images  → MiMo V2.5 Free via OpenCode (pas de quota limit)
-// Audio   → Gemini 2.0 Flash (si quota dispo)
+// Audio   → Gemini 1.5 Flash (modèle stable pour transcription)
 // Fallback → Message naturel si échec
 // ============================================================
 
 import axios from 'axios';
 
-const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_AUDIO_MODEL = 'gemini-1.5-flash'; // Audio = 1.5 Flash (stable)
+const GEMINI_VISION_MODEL = 'gemini-2.5-flash'; // Vision = 2.5 Flash
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 const OPENCODE_BASE = (process.env.OPENCODE_BASE_URL || 'https://opencode.ai/zen/v1').replace(/\/+$/, '');
@@ -131,7 +132,7 @@ export async function analyzeImage(imageUrl, geminiKey, catalog = [], metaToken 
   if (geminiKey) {
     try {
       const response = await axios.post(
-        `${GEMINI_BASE}/${GEMINI_MODEL}:generateContent?key=${geminiKey}`,
+        `${GEMINI_BASE}/${GEMINI_VISION_MODEL}:generateContent?key=${geminiKey}`,
         {
           contents: [{
             parts: [
@@ -170,11 +171,12 @@ export async function transcribeAudio(audioUrl, geminiKey, metaToken = '') {
   const mimeType = getAudioMimeType(audioUrl);
   console.log(`[Media] 🎤 Audio téléchargé: ${(audioBuffer.length / 1024).toFixed(1)} KB (${mimeType})`);
 
-  // 2. Gemini
+  // 2. Gemini (modèle 1.5 Flash pour audio)
   if (geminiKey) {
+    console.log(`[Media] 🔑 Clé Gemini présente (${geminiKey.substring(0, 12)}...), appel ${GEMINI_AUDIO_MODEL}...`);
     try {
       const response = await axios.post(
-        `${GEMINI_BASE}/${GEMINI_MODEL}:generateContent?key=${geminiKey}`,
+        `${GEMINI_BASE}/${GEMINI_AUDIO_MODEL}:generateContent?key=${geminiKey}`,
         {
           contents: [{
             parts: [
@@ -192,6 +194,8 @@ export async function transcribeAudio(audioUrl, geminiKey, metaToken = '') {
         console.log(`[Media] ✅ Audio transcrit par Gemini: "${text.substring(0, 80)}..."`);
         return text;
       }
+      console.warn(`[Media] ⚠️ Gemini a répondu mais texte vide ou trop court: "${text}"`);
+      console.warn(`[Media] ⚠️ Réponse brute:`, JSON.stringify(response?.data).substring(0, 200));
     } catch (err) {
       const geminiErr = err.response?.data?.error?.message || err.message;
       console.error('[Media] ❌ Gemini audio échoué:', geminiErr);
